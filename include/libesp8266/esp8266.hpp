@@ -1,10 +1,11 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <memory_resource>
 #include <span>
+#include <string>
 
 #include <libembeddedhal/driver.hpp>
 #include <libembeddedhal/serial.hpp>
@@ -24,6 +25,8 @@ public:
   static constexpr uint32_t default_baud_rate = 115200;
   /// Confirmation response
   static constexpr char ok_response[] = "\r\nOK\r\n";
+  /// Confirmation response after a wifi successfully connected
+  static constexpr char wifi_connected[] = "WIFI GOT IP\r\n\r\nOK\r\n";
   /// The maximum packet size for esp8266 AT commands
   static constexpr size_t maximum_packet_size = 1460;
 
@@ -66,7 +69,44 @@ public:
     PATCH,
   };
 
-  enum class request_status
+  struct request_t
+  {
+    /**
+     * @brief Domain name of the server to connect to. This should not include
+     * stuff like "http://" or "www". An example would be `google.com`,
+     * `example.com`, or `developer.mozilla.org`.
+     *
+     */
+    std::string_view domain;
+    /**
+     * @brief path to the resource within the domain url. To get the root page,
+     * use "/" (or "/index.html"). URL parameters can also be placed in the path
+     * as well such as "/search?query=esp8266&price=lowest"
+     *
+     */
+    std::string_view path = "/";
+    /**
+     * @brief which http method to use for this request. Most web servers use
+     * GET and POST and tend to ignore the others.
+     *
+     */
+    method method = method::GET;
+    /**
+     * @brief Data to transmit to web server. This field is typically used (or
+     * non-null) when performing POST requests. Typically this field will be
+     * ignored if the method choosen is HEAD or GET. Set this to an empty span
+     * if there is no data to be sent.
+     *
+     */
+    std::span<const std::byte> send_data = {};
+    /**
+     * @brief which server port number to connect to.
+     *
+     */
+    std::string_view port = "80";
+  };
+
+  enum class state
   {
     initialized,
     connecting_to_server,
@@ -89,23 +129,12 @@ public:
     : m_serial(p_serial)
     , m_request_span(p_request_span)
     , m_response_span(p_response_span)
-    , m_status(request_status::initialized)
+    , m_state(state::initialized)
     , m_baud_rate(p_baud_rate)
 
   {}
 
   bool driver_initialize() override;
-
-  /**
-   * @brief Tests that the esp8266 can respond to commands.
-   *
-   */
-  void test_module();
-  /**
-   * @brief Resets esp8266 using serial command.
-   *
-   */
-  void software_reset();
   /**
    * @brief Connect to WiFi access point. The device must be disconnected first
    * before attempting to connect to another access point.
@@ -115,12 +144,12 @@ public:
    */
   void connect(std::string_view ssid, std::string_view password);
   /**
-   * @brief checks the connection status to an access point.
+   * @brief checks the connection state to an access point.
    *
    * @return true is connected to access point
    * @return false is NOT connected access point
    */
-  bool connect();
+  bool connected();
   /**
    * @brief Disconnect from the access point.
    *
@@ -133,25 +162,17 @@ public:
    * and as such, to progress the request further the `progress()` function must
    * be called, until it returns "complete" or an error condition has occurred.
    *
-   * @param p_domain domain name of the server to connect to. This should not
-   * include stuff like "http://" or "www". An example would be `google.com`,
-   * `example.com`, or `developer.mozilla.org`.
-   * @param p_path path to the resource within the domain url. To get the root
-   * page, use "/" (or "/index.html"). URL parameters can also be placed in the
-   * path as well such as "/search?query=esp8266&price=lowest"
-   * @param p_method which http method to use for this request. Most web servers
-   * use GET and POST and tend to ignore the others.
-   * @param p_send_data data to transmit to web server. This field is typically
-   * used (or non-null) when performing POST requests. Typically this field will
-   * be ignored if the method choosen is HEAD or GET. Set this to an empty span
-   * if there is no data to be sent.
-   * @param p_port which server port number to connect to.
    */
-  void request(std::string_view p_domain,
-               std::string_view p_path = "/",
-               method p_method = method::GET,
-               std::span<const std::byte> p_send_data = {},
-               uint16_t p_port = 80);
+  void request(request_t p_request);
+  /**
+   * @brief After issuing a request, this function must be called in order to
+   * progress the http request. This function manages, connecting to the server,
+   * sending the request to server and receiving data from the server.
+   *
+   * @return state is the state of the current transaction. This value
+   * can be checked to determine if a certain stage is taking too long.
+   */
+  state progress();
   /**
    * @brief Returns a const reference to the response buffer. This function
    * should not be called unless the progress() function returns "completed",
@@ -161,21 +182,22 @@ public:
    * size equal to the number of bytes retrieved from the response buffer.
    */
   std::span<const std::byte> response() { return m_response_span; }
-  /**
-   * @brief After issuing a request, this function must be called in order to
-   * progress the http request. This function manages, connecting to the server,
-   * sending the request to server and receiving data from the server.
-   *
-   * @return request_status is the state of the current transaction. This value
-   * can be checked to determine if a certain stage is taking too long.
-   */
-  request_status progress();
 
 private:
+  void write(std::string_view p_string)
+  {
+    m_serial.flush();
+    std::span<const char> string_span(p_string.begin(), p_string.end());
+    m_serial.write(std::as_bytes(string_span));
+  }
+
+  void read(std::string_view p_string) {}
+
   serial& m_serial;
   std::span<std::byte> m_request_span;
   std::span<std::byte> m_response_span;
-  std::atomic<request_status> m_status;
+  std::atomic<state> m_state;
+  request_t m_request;
   const uint32_t m_baud_rate;
 };
 
@@ -193,4 +215,98 @@ private:
   std::array<std::byte, RequestBufferSize> m_request_buffer;
   std::array<std::byte, ResponseBufferSize> m_response_buffer;
 };
+} // namespace embed
+
+namespace embed {
+bool esp8266::driver_initialize()
+{
+  m_serial.settings().baud_rate = m_baud_rate;
+  m_serial.settings().frame_size = 8;
+  m_serial.settings().parity = serial_settings::parity::none;
+  m_serial.settings().stop = serial_settings::stop_bits::one;
+
+  if (!m_serial.initialize()) {
+    return false;
+  }
+
+  // Force device out of transparent wifi mode if it was previous in that mode
+  write("+++");
+
+  // Bring device back to default settings, aborting all transactions and
+  // disconnecting from any access points.
+  write("AT+RST\r\n");
+  read("\r\nready\r\n");
+
+  // Disable echo
+  write("ATE0\r\n");
+  read(ok_response);
+
+  // Enable simple IP client mode
+  write("AT+CWMODE=1\r\n");
+  read(ok_response);
+
+  write("AT\r\n");
+  read(ok_response);
+}
+void esp8266::connect(std::string_view ssid, std::string_view password)
+{
+  std::string payload;
+  payload += "AT+CWJAP_CUR=\"";
+  payload += ssid;
+  payload += "\",\"";
+  payload += password;
+  payload += "\"\r\n";
+
+  write(payload);
+
+  return read(wifi_connected);
+}
+bool esp8266::connected()
+{
+  return true;
+}
+void esp8266::disconnect()
+{
+  write("AT+CWQAP\r\n");
+  read(ok_response);
+}
+void esp8266::request(request_t p_request)
+{
+  // Save request information
+  m_request = p_request;
+
+  // Create stack allocated buffer
+  std::array<char, 256> buffer{ 0 };
+  std::pmr::monotonic_buffer_resource buffer_resource{ buffer.data(),
+                                                       buffer.size() };
+  std::pmr::string payload(&buffer_resource);
+
+  // Create command for connection to server
+  payload += "AT+CIPSTART=\"TCP\",\"";
+  payload += m_request.domain;
+  payload += "\",\"";
+  payload += m_request.port;
+  payload += "\"\r\n";
+
+  // Send payload to esp8266
+  write(payload);
+
+  // Move to connecting to server
+  m_state = state::connecting_to_server;
+}
+auto esp8266::progress() -> state
+{
+  switch (m_state) {
+    case state::connecting_to_server:
+      break;
+    case state::sending_request:
+      break;
+    case state::waiting_for_response:
+      break;
+    case state::complete:
+      break;
+    default:
+      break;
+  }
+}
 } // namespace embed
