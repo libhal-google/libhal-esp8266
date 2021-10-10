@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <memory_resource>
 #include <span>
@@ -9,6 +10,7 @@
 
 #include <libembeddedhal/driver.hpp>
 #include <libembeddedhal/serial.hpp>
+#include <ring_span.hpp>
 
 namespace embed {
 using namespace std::chrono_literals;
@@ -28,7 +30,8 @@ public:
   /// Confirmation response after a wifi successfully connected
   static constexpr char wifi_connected[] = "WIFI GOT IP\r\n\r\nOK\r\n";
   /// The maximum packet size for esp8266 AT commands
-  static constexpr size_t maximum_packet_size = 1460;
+  static constexpr size_t maximum_response_packet_size = 1460;
+  static constexpr size_t maximum_transmit_packet_size = 2048;
 
   /// The type of password security used for the access point.
   enum class access_point_security
@@ -108,13 +111,20 @@ public:
 
   enum class state
   {
-    initialized,
+    // Phase 1: Connecting to Wifi access point
+    start,
+    reset,
+    disable_echo,
+    configure_as_http_client,
+    disconnected,
+    attempting_ap_connection,
+    connected_to_ap,
+    // Phase 2: HTTP request
     connecting_to_server,
     sending_request,
-    waiting_for_response,
+    gathering_response,
     complete,
-    failure_404,
-    corrupted_response,
+    failure,
   };
 
   /**
@@ -125,24 +135,28 @@ public:
   esp8266(embed::serial& p_serial,
           std::span<std::byte> p_request_span,
           std::span<std::byte> p_response_span,
-          uint32_t p_baud_rate = default_baud_rate)
+          std::string_view p_ssid,
+          std::string_view p_password)
     : m_serial(p_serial)
     , m_request_span(p_request_span)
     , m_response_span(p_response_span)
-    , m_state(state::initialized)
-    , m_baud_rate(p_baud_rate)
+    , m_state(state::start)
+    , m_ssid(p_ssid)
+    , m_password(p_password)
 
   {}
 
   bool driver_initialize() override;
   /**
-   * @brief Connect to WiFi access point. The device must be disconnected first
-   * before attempting to connect to another access point.
+   * @brief Change the access point to connect to. Running get_status() after
+   * calling this will disconnect from the previous access point and attempt to
+   * connect to the new one.
    *
-   * @param ssid name of the access point
-   * @param password the password for the access point
+   * @param p_ssid name of the access point
+   * @param p_password the password for the access point
    */
-  void connect(std::string_view ssid, std::string_view password);
+  void change_access_point(std::string_view p_ssid,
+                           std::string_view p_password);
   /**
    * @brief checks the connection state to an access point.
    *
@@ -151,17 +165,17 @@ public:
    */
   bool connected();
   /**
-   * @brief Disconnect from the access point.
-   *
-   */
-  void disconnect();
-  /**
    * @brief Starts a http request. This function will issue a command to connect
    * with a server and will return immediately. This function will also abort
    * any ongoing requests if they are in progress. This function is non-blocking
    * and as such, to progress the request further the `progress()` function must
    * be called, until it returns "complete" or an error condition has occurred.
    *
+   * @note Only currently support GET requests
+   *
+   * @param true if the request is valid and can be transmitted
+   * @param false if the request is invalid and cannot be transmitted. This
+   * typically occurs if the packet size if greater than 2048 bytes.
    */
   void request(request_t p_request);
   /**
@@ -172,7 +186,7 @@ public:
    * @return state is the state of the current transaction. This value
    * can be checked to determine if a certain stage is taking too long.
    */
-  state progress();
+  state get_status();
   /**
    * @brief Returns a const reference to the response buffer. This function
    * should not be called unless the progress() function returns "completed",
@@ -189,27 +203,36 @@ private:
     m_serial.flush();
     std::span<const char> string_span(p_string.begin(), p_string.end());
     m_serial.write(std::as_bytes(string_span));
+    while (m_serial.busy()) {
+      continue;
+    }
   }
 
-  void read(std::string_view p_string) {}
+  void read(std::string_view p_string);
+  static std::string_view to_string(method p_method);
 
   serial& m_serial;
   std::span<std::byte> m_request_span;
   std::span<std::byte> m_response_span;
   std::atomic<state> m_state;
+  std::string_view m_ssid;
+  std::string_view m_password;
   request_t m_request;
-  const uint32_t m_baud_rate;
 };
 
-template<size_t RequestBufferSize = esp8266::maximum_packet_size,
-         size_t ResponseBufferSize = esp8266::maximum_packet_size * 2>
-class static_esp8266 : public esp8266
+template<size_t RequestBufferSize = esp8266::maximum_transmit_packet_size * 2,
+         size_t ResponseBufferSize = esp8266::maximum_response_packet_size * 2>
+class static_esp8266 : public esp8266_driver
 {
 public:
   static_esp8266(embed::serial& p_serial,
                  uint32_t p_baud_rate = esp8266::default_baud_rate)
     : esp8266(p_serial, m_request_buffer, m_response_buffer, p_baud_rate)
   {}
+
+  static_assert(RequestBufferSize >= esp8266::maximum_transmit_packet_size * 2);
+  static_assert(ResponseBufferSize >=
+                esp8266::maximum_response_packet_size * 2);
 
 private:
   std::array<std::byte, RequestBufferSize> m_request_buffer;
@@ -220,7 +243,7 @@ private:
 namespace embed {
 bool esp8266::driver_initialize()
 {
-  m_serial.settings().baud_rate = m_baud_rate;
+  m_serial.settings().baud_rate = 115200;
   m_serial.settings().frame_size = 8;
   m_serial.settings().parity = serial_settings::parity::none;
   m_serial.settings().stop = serial_settings::stop_bits::one;
@@ -229,84 +252,150 @@ bool esp8266::driver_initialize()
     return false;
   }
 
-  // Force device out of transparent wifi mode if it was previous in that mode
-  write("+++");
-
-  // Bring device back to default settings, aborting all transactions and
-  // disconnecting from any access points.
-  write("AT+RST\r\n");
-  read("\r\nready\r\n");
-
-  // Disable echo
-  write("ATE0\r\n");
-  read(ok_response);
-
-  // Enable simple IP client mode
-  write("AT+CWMODE=1\r\n");
-  read(ok_response);
-
-  write("AT\r\n");
-  read(ok_response);
+  m_state = state::reset;
 }
-void esp8266::connect(std::string_view ssid, std::string_view password)
+void esp8266::change_access_point(std::string_view p_ssid,
+                                  std::string_view p_password)
 {
-  std::string payload;
-  payload += "AT+CWJAP_CUR=\"";
-  payload += ssid;
-  payload += "\",\"";
-  payload += password;
-  payload += "\"\r\n";
-
-  write(payload);
-
-  return read(wifi_connected);
+  m_ssid = p_ssid;
+  m_password = p_password;
+  m_state = state::disconnected;
 }
 bool esp8266::connected()
 {
-  return true;
-}
-void esp8266::disconnect()
-{
-  write("AT+CWQAP\r\n");
-  read(ok_response);
+  return m_state >= state::connected_to_ap;
 }
 void esp8266::request(request_t p_request)
 {
-  // Save request information
   m_request = p_request;
-
-  // Create stack allocated buffer
-  std::array<char, 256> buffer{ 0 };
-  std::pmr::monotonic_buffer_resource buffer_resource{ buffer.data(),
-                                                       buffer.size() };
-  std::pmr::string payload(&buffer_resource);
-
-  // Create command for connection to server
-  payload += "AT+CIPSTART=\"TCP\",\"";
-  payload += m_request.domain;
-  payload += "\",\"";
-  payload += m_request.port;
-  payload += "\"\r\n";
-
-  // Send payload to esp8266
-  write(payload);
-
-  // Move to connecting to server
   m_state = state::connecting_to_server;
 }
-auto esp8266::progress() -> state
+void esp8266::read(std::string_view p_string)
+{
+  auto p_string_bytes =
+    std::as_bytes(std::span<const char>(p_string.begin(), p_string.end()));
+  std::array<std::byte, 1024> parse_buffer;
+  nonstd::ring_span<std::byte> parse_ring(parse_buffer.begin(),
+                                          parse_buffer.end());
+  while (true) {
+    auto bytes_received = m_serial.read(parse_buffer);
+    for (const auto& byte : bytes_received) {
+      parse_ring.push_back(byte);
+    }
+    auto location = std::find_end(parse_ring.begin(),
+                                  parse_ring.end(),
+                                  p_string_bytes.begin(),
+                                  p_string_bytes.end());
+    if (location != parse_ring.end()) {
+      return;
+    }
+  }
+}
+auto esp8266::get_status() -> state
 {
   switch (m_state) {
+    case state::start:
+    case state::reset:
+      // Force device out of transparent wifi mode if it was previous in that
+      // mode
+      write("+++");
+      // Bring device back to default settings, aborting all transactions and
+      // disconnecting from any access points.
+      write("AT+RST\r\n");
+      read("\r\nready\r\n");
+      m_state = state::disable_echo;
+      break;
+    case state::disable_echo:
+      // Disable echo
+      write("ATE0\r\n");
+      read(ok_response);
+      m_state = state::configure_as_http_client;
+      break;
+    case state::configure_as_http_client:
+      // Enable simple IP client mode
+      write("AT+CWMODE=1\r\n");
+      read(ok_response);
+      m_state = state::disconnected;
+      break;
+    case state::disconnected:
+      write("AT+CWQAP\r\n");
+      read(ok_response);
+      m_state = state::attempting_ap_connection;
+      break;
+    case state::attempting_ap_connection:
+      write("AT+CWJAP_CUR=\"");
+      write(m_ssid);
+      write("\",\"");
+      write(m_password);
+      write("\"\r\n");
+      read(wifi_connected);
+      m_state = state::connected_to_ap;
+      break;
+    case state::connected_to_ap:
+      break;
     case state::connecting_to_server:
+      write("AT+CIPSTART=\"TCP\",\"");
+      write(m_request.domain);
+      write("\",\"");
+      write(m_request.port);
+      write("\"\r\n");
+      read(ok_response);
+      m_state = state::sending_request;
       break;
     case state::sending_request:
+      write("AT+CIPSEND\r\n");
+      // Start of HEADER
+      write("GET ");
+      if (m_request.path.empty()) {
+        write("/");
+      } else {
+        write(m_request.path);
+      }
+      write(" HTTP/1.1\r\n");
+      // Construct host field
+      write("Host: ");
+      write(m_request.domain);
+      write(":");
+      write(m_request.port);
+      // End of a header
+      write("\r\n\r\n");
+      // exit transparent mode
+      write("+++");
+      read(ok_response);
+      m_state = state::gathering_response;
       break;
-    case state::waiting_for_response:
+    case state::gathering_response:
+      // Storing response
+      m_state = state::complete;
       break;
     case state::complete:
+    case state::failure:
       break;
-    default:
-      break;
+  }
+
+  return m_state;
+}
+std::string_view esp8266::to_string(method p_method)
+{
+  switch (p_method) {
+    case method::GET:
+      return "GET";
+    case method::HEAD:
+      return "HEAD";
+    case method::POST:
+      return "POST";
+    case method::PUT:
+      return "PUT";
+    case method::DELETE:
+      return "DELETE";
+    case method::CONNECT:
+      return "CONNECT";
+    case method::OPTIONS:
+      return "OPTIONS";
+    case method::TRACE:
+      return "TRACE";
+    case method::PATCH:
+      return "PATCH";
   }
 }
 } // namespace embed

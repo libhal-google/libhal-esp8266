@@ -20,3 +20,4 @@ class libesp8266_conan(ConanFile):
 
     def requirements(self):
         self.requires("libembeddedhal/0.0.1")
+        self.requires("ring-span-lite/0.6.0")

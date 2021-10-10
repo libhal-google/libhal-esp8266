@@ -1,3 +1,9 @@
-# libbasis
+# libeps8266
 
-The basis library for all other SJSU-Dev2 libraries
+Library for controlling esp8266 WiFi modules via serial AT commands using the
+libembeddedhal interfaces.
+
+## 🏗️ WARNING: Work in progress! 🚧
+- Only supports GET requests
+- GET requests must be below 2048 bytes (multi packet transmission not possible
+yet).
