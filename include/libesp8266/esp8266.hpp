@@ -2,19 +2,15 @@
 
 #include <array>
 #include <atomic>
-#include <charconv>
-#include <chrono>
 #include <memory_resource>
 #include <span>
 #include <string>
 
 #include <libembeddedhal/driver.hpp>
 #include <libembeddedhal/serial.hpp>
-#include <ring_span.hpp>
+#include <nonstd/ring_span.hpp>
 
 namespace embed {
-using namespace std::chrono_literals;
-
 /**
  * @brief esp8266 AT command driver for connecting to WiFi Access points and
  * connecting to web servers.
@@ -29,6 +25,8 @@ public:
   static constexpr char ok_response[] = "\r\nOK\r\n";
   /// Confirmation response after a wifi successfully connected
   static constexpr char wifi_connected[] = "WIFI GOT IP\r\n\r\nOK\r\n";
+  /// Confirmation response after a reset complets
+  static constexpr char reset_complete[] = "\r\nready\r\n";
   /// The maximum packet size for esp8266 AT commands
   static constexpr size_t maximum_response_packet_size = 1460;
   static constexpr size_t maximum_transmit_packet_size = 2048;
@@ -43,7 +41,7 @@ public:
     wpa_wpa2_psk,
   };
 
-  enum class method
+  enum class http_method
   {
     /// The GET method requests a representation of the specified resource.
     /// Requests using GET should only retrieve data.
@@ -93,7 +91,7 @@ public:
      * GET and POST and tend to ignore the others.
      *
      */
-    method method = method::GET;
+    http_method method = http_method::GET;
     /**
      * @brief Data to transmit to web server. This field is typically used (or
      * non-null) when performing POST requests. Typically this field will be
@@ -107,6 +105,12 @@ public:
      *
      */
     std::string_view port = "80";
+  };
+
+  struct header_t {
+    uint32_t response_code = 0;
+    size_t content_length = 0;
+
   };
 
   enum class state
@@ -127,16 +131,18 @@ public:
     failure,
   };
 
+  static std::string_view to_string(http_method p_method);
+
   /**
    * @param p_serial the serial port connected to the esp8266
    * @param p_baud_rate the operating baud rate for the esp8266
    *
    */
   esp8266(embed::serial& p_serial,
-          std::span<std::byte> p_request_span,
-          std::span<std::byte> p_response_span,
           std::string_view p_ssid,
-          std::string_view p_password)
+          std::string_view p_password,
+          std::span<std::byte> p_request_span,
+          std::span<std::byte> p_response_span)
     : m_serial(p_serial)
     , m_request_span(p_request_span)
     , m_response_span(p_response_span)
@@ -209,7 +215,13 @@ private:
   }
 
   void read(std::string_view p_string);
-  static std::string_view to_string(method p_method);
+
+  void read_header() {
+    read("\r\n\r\n");
+  }
+  void read_response() {
+    // auto received_bytes = m_serial.read(m_response_span);
+  }
 
   serial& m_serial;
   std::span<std::byte> m_request_span;
@@ -218,16 +230,18 @@ private:
   std::string_view m_ssid;
   std::string_view m_password;
   request_t m_request;
+  header_t m_header;
 };
 
 template<size_t RequestBufferSize = esp8266::maximum_transmit_packet_size * 2,
          size_t ResponseBufferSize = esp8266::maximum_response_packet_size * 2>
-class static_esp8266 : public esp8266_driver
+class static_esp8266 : public esp8266
 {
 public:
   static_esp8266(embed::serial& p_serial,
-                 uint32_t p_baud_rate = esp8266::default_baud_rate)
-    : esp8266(p_serial, m_request_buffer, m_response_buffer, p_baud_rate)
+                 std::string_view p_ssid,
+                 std::string_view p_password)
+    : esp8266(p_serial, p_ssid, p_password, m_request_buffer, m_response_buffer)
   {}
 
   static_assert(RequestBufferSize >= esp8266::maximum_transmit_packet_size * 2);
@@ -241,7 +255,7 @@ private:
 } // namespace embed
 
 namespace embed {
-bool esp8266::driver_initialize()
+inline bool esp8266::driver_initialize()
 {
   m_serial.settings().baud_rate = 115200;
   m_serial.settings().frame_size = 8;
@@ -253,30 +267,33 @@ bool esp8266::driver_initialize()
   }
 
   m_state = state::reset;
+
+  return true;
 }
-void esp8266::change_access_point(std::string_view p_ssid,
-                                  std::string_view p_password)
+inline void esp8266::change_access_point(std::string_view p_ssid,
+                                         std::string_view p_password)
 {
   m_ssid = p_ssid;
   m_password = p_password;
   m_state = state::disconnected;
 }
-bool esp8266::connected()
+inline bool esp8266::connected()
 {
   return m_state >= state::connected_to_ap;
 }
-void esp8266::request(request_t p_request)
+inline void esp8266::request(request_t p_request)
 {
   m_request = p_request;
   m_state = state::connecting_to_server;
 }
-void esp8266::read(std::string_view p_string)
+inline void esp8266::read(std::string_view p_string)
 {
   auto p_string_bytes =
     std::as_bytes(std::span<const char>(p_string.begin(), p_string.end()));
   std::array<std::byte, 1024> parse_buffer;
-  nonstd::ring_span<std::byte> parse_ring(parse_buffer.begin(),
-                                          parse_buffer.end());
+  std::ranges::fill(parse_buffer, std::byte{ 0 });
+  nonstd::ring_span<std::byte> parse_ring(m_request_span.begin(),
+                                          m_request_span.end());
   while (true) {
     auto bytes_received = m_serial.read(parse_buffer);
     for (const auto& byte : bytes_received) {
@@ -291,7 +308,7 @@ void esp8266::read(std::string_view p_string)
     }
   }
 }
-auto esp8266::get_status() -> state
+inline auto esp8266::get_status() -> state
 {
   switch (m_state) {
     case state::start:
@@ -302,7 +319,7 @@ auto esp8266::get_status() -> state
       // Bring device back to default settings, aborting all transactions and
       // disconnecting from any access points.
       write("AT+RST\r\n");
-      read("\r\nready\r\n");
+      read(reset_complete);
       m_state = state::disable_echo;
       break;
     case state::disable_echo:
@@ -315,7 +332,8 @@ auto esp8266::get_status() -> state
       // Enable simple IP client mode
       write("AT+CWMODE=1\r\n");
       read(ok_response);
-      m_state = state::disconnected;
+      // m_state = state::disconnected;
+      m_state = state::attempting_ap_connection;
       break;
     case state::disconnected:
       write("AT+CWQAP\r\n");
@@ -336,14 +354,17 @@ auto esp8266::get_status() -> state
     case state::connecting_to_server:
       write("AT+CIPSTART=\"TCP\",\"");
       write(m_request.domain);
-      write("\",\"");
+      write("\",");
       write(m_request.port);
-      write("\"\r\n");
+      write("\r\n");
       read(ok_response);
       m_state = state::sending_request;
       break;
     case state::sending_request:
+      write("AT+CIPMODE=1\r\n");
+      read(ok_response);
       write("AT+CIPSEND\r\n");
+      read(">");
       // Start of HEADER
       write("GET ");
       if (m_request.path.empty()) {
@@ -361,13 +382,16 @@ auto esp8266::get_status() -> state
       write("\r\n\r\n");
       // exit transparent mode
       write("+++");
-      read(ok_response);
       m_state = state::gathering_response;
       break;
-    case state::gathering_response:
+    case state::gathering_response: {
       // Storing response
+      read(">");
+      read_header();
+      read_response();
       m_state = state::complete;
       break;
+    }
     case state::complete:
     case state::failure:
       break;
@@ -375,26 +399,26 @@ auto esp8266::get_status() -> state
 
   return m_state;
 }
-std::string_view esp8266::to_string(method p_method)
+inline std::string_view esp8266::to_string(http_method p_method)
 {
   switch (p_method) {
-    case method::GET:
+    case http_method::GET:
       return "GET";
-    case method::HEAD:
+    case http_method::HEAD:
       return "HEAD";
-    case method::POST:
+    case http_method::POST:
       return "POST";
-    case method::PUT:
+    case http_method::PUT:
       return "PUT";
-    case method::DELETE:
+    case http_method::DELETE:
       return "DELETE";
-    case method::CONNECT:
+    case http_method::CONNECT:
       return "CONNECT";
-    case method::OPTIONS:
+    case http_method::OPTIONS:
       return "OPTIONS";
-    case method::TRACE:
+    case http_method::TRACE:
       return "TRACE";
-    case method::PATCH:
+    case http_method::PATCH:
       return "PATCH";
   }
 }
