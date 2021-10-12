@@ -66,11 +66,13 @@ public:
   /// Default baud rate for the esp8266 AT commands
   static constexpr uint32_t default_baud_rate = 115200;
   /// Confirmation response
-  static constexpr char ok_response[] = "\r\nOK\r\n";
+  static constexpr char ok_response[] = "OK\r\n";
   /// Confirmation response after a wifi successfully connected
   static constexpr char wifi_connected[] = "WIFI GOT IP\r\n\r\nOK\r\n";
   /// Confirmation response after a reset complets
-  static constexpr char reset_complete[] = "\r\nready\r\n";
+  static constexpr char reset_complete[] = "ready\r\n";
+  /// End of header
+  static constexpr std::string_view end_of_header = "\r\n\r\n";
   /// The maximum packet size for esp8266 AT commands
   static constexpr size_t maximum_response_packet_size = 1460;
   static constexpr size_t maximum_transmit_packet_size = 2048;
@@ -155,6 +157,11 @@ public:
   {
     uint32_t status_code = 0;
     size_t content_length = 0;
+    size_t header_length = 0;
+    bool is_valid()
+    {
+      return status_code != 0 && content_length != 0 && header_length != 0;
+    }
   };
 
   enum class state
@@ -190,7 +197,6 @@ public:
     , m_state(state::start)
     , m_ssid(p_ssid)
     , m_password(p_password)
-
   {}
 
   bool driver_initialize() override;
@@ -256,22 +262,52 @@ private:
   }
 
   void read(std::string_view p_string);
-  void find(std::string_view p_string) {}
+  inline std::span<std::byte> read_packet();
 
-  void read_header()
+  header_t get_header(std::span<std::byte> p_header_info)
   {
-    read("+IPD,");
+    std::string_view header_info(
+      reinterpret_cast<const char*>(p_header_info.data()),
+      reinterpret_cast<const char*>(p_header_info.data() +
+                                    p_header_info.size()));
 
-    read("\r\n\r\n");
+    constexpr header_t failure_header{};
 
-    auto content_string =
-      std::as_bytes(std::span<const char>("Content-Length: "));
+    header_t new_header;
+    size_t index = 0;
+    int count = 0;
 
-    // std::find(m_response_span.begin(), )
-  }
-  void read_response()
-  {
-    // auto received_bytes = m_serial.read(m_response_span);
+    index = header_info.find("HTTP/1.1 ");
+    if (index == std::string_view::npos) {
+      return failure_header;
+    }
+
+    count = sscanf(
+      &header_info[index], "HTTP/1.1 %" PRIu32 " OK", &new_header.status_code);
+    if (count != 1) {
+      return failure_header;
+    }
+
+    index = header_info.find("Content-Length: ");
+    if (index == std::string_view::npos) {
+      return failure_header;
+    }
+
+    count = sscanf(&header_info[index],
+                   "Content-Length: %" PRIu32,
+                   &new_header.content_length);
+    if (count != 1) {
+      return failure_header;
+    }
+
+    index = header_info.find(end_of_header);
+    if (index == std::string_view::npos) {
+      return failure_header;
+    }
+
+    new_header.header_length = index + end_of_header.size();
+
+    return new_header;
   }
 
   serial& m_serial;
@@ -281,6 +317,7 @@ private:
   std::string_view m_password;
   request_t m_request;
   header_t m_header;
+  std::array<std::byte, maximum_response_packet_size> m_packet;
 };
 
 template<size_t ResponseBufferSize = esp8266::maximum_response_packet_size * 2>
@@ -333,46 +370,60 @@ inline void esp8266::request(request_t p_request)
 }
 inline void esp8266::read(std::string_view p_sequence)
 {
-  std::array<std::byte, 64> serial_buffer;
-  std::array<std::byte, 128> response_buffer;
-  nonstd::ring_span<std::byte> parse_ring(response_buffer.begin(),
-                                          response_buffer.end());
-
-  auto sequence =
-    std::as_bytes(std::span<const char>(p_sequence.begin(), p_sequence.end()));
-
-  std::ranges::fill(serial_buffer, std::byte{ 0 });
+  std::array<std::byte, 1024 * 2> response_buffer;
   std::ranges::fill(response_buffer, std::byte{ 0 });
 
-  while (true) {
-    auto bytes_received = m_serial.read(serial_buffer);
-    for (const auto& byte : bytes_received) {
-      parse_ring.push_back(byte);
-    }
-    auto location = std::find_end(
-      parse_ring.begin(), parse_ring.end(), sequence.begin(), sequence.end());
+  auto sequence_span =
+    std::span<const char>(p_sequence.begin(), p_sequence.end());
+  auto sequence_bytes = std::as_bytes(sequence_span);
 
-    if (location != parse_ring.end()) {
-      return;
-    } else {
-      while (parse_ring.size() >= sequence.size()) {
-        parse_ring.pop_front();
-      }
-    }
+  read_until_buffer<std::byte> reader(
+    m_serial, sequence_bytes, response_buffer);
+
+  while (reader.search() == -1) {
+    continue;
   }
+}
+inline std::span<std::byte> esp8266::read_packet()
+{
+  std::ranges::fill(m_packet, std::byte{ 0 });
+
+  std::array<std::byte, 1> colon = { std::byte{ ':' } };
+  read_until_buffer<std::byte> reader(m_serial, colon, m_packet);
+
+  while (reader.search() == -1) {
+    continue;
+  }
+
+  size_t packet_length = 0;
+  int count = sscanf(
+    reinterpret_cast<char*>(m_packet.data()), "\r\n+IPD,%zu:", &packet_length);
+
+  if (count != 1 || packet_length > m_packet.size()) {
+    return {};
+  }
+
+  size_t read_index = 0;
+  std::span<std::byte> frame_span(m_packet.begin(), packet_length);
+  while (frame_span.size() != 0) {
+    auto received_bytes = m_serial.read(frame_span);
+    frame_span = frame_span.subspan(received_bytes.size());
+  }
+
+  return { m_packet.begin(), packet_length };
 }
 inline auto esp8266::get_status() -> state
 {
   switch (m_state) {
     case state::start:
     case state::reset:
-      // Force device out of transparent wifi mode if it was previous in that
-      // mode
-      write("+++");
-      // Bring device back to default settings, aborting all transactions and
-      // disconnecting from any access points.
-      write("AT+RST\r\n");
-      read(reset_complete);
+      // // Force device out of transparent wifi mode if it was previous in that
+      // // mode
+      // write("+++");
+      // // Bring device back to default settings, aborting all transactions and
+      // // disconnecting from any access points.
+      // write("AT+RST\r\n");
+      // read(reset_complete);
       m_state = state::disable_echo;
       break;
     case state::disable_echo:
@@ -408,37 +459,38 @@ inline auto esp8266::get_status() -> state
       m_state = state::sending_request;
       break;
     case state::sending_request: {
-      int length = snprintf(reinterpret_cast<char*>(m_response_span.data()),
-                            m_response_span.size(),
-                            // Request
-                            "GET %s HTTP/1.1\r\n"
-                            // Host Field
-                            "Host: %s:%s\r\n"
-                            // End of header
-                            "\r\n\r\n",
-                            m_request.path,
-                            m_request.domain,
-                            m_request.port);
+      int payload_length =
+        snprintf(reinterpret_cast<char*>(m_response_span.data()),
+                 m_response_span.size(),
+                 // Request
+                 "GET %s HTTP/1.1\r\n"
+                 // Host Field
+                 "Host: %s:%s\r\n"
+                 // End of header
+                 "\r\n\r\n",
+                 m_request.path.data(),
+                 m_request.domain.data(),
+                 m_request.port.data());
 
-      if (length < 0) {
+      if (payload_length < 0) {
         m_state = state::failure;
         break;
       }
 
       std::array<char, 64> buffer;
-      int length =
-        snprintf(buffer.data(), buffer.size(), "AT+CIPSEND=%d\r\n", length);
+      int cipsend_length = snprintf(
+        buffer.data(), buffer.size(), "AT+CIPSEND=%d\r\n", payload_length);
 
-      if (length < 0) {
+      if (cipsend_length < 0) {
         m_state = state::failure;
         break;
       }
 
-      write(std::string_view(buffer.data(), length));
+      write(std::string_view(buffer.data(), cipsend_length));
       read(ok_response);
 
       // send payload
-      m_serial.write(m_response_span.subspan(0, length));
+      m_serial.write(m_response_span.subspan(0, payload_length));
       read(ok_response);
 
       m_state = state::gathering_response;
@@ -446,12 +498,40 @@ inline auto esp8266::get_status() -> state
     }
     case state::gathering_response: {
       // Storing response
-      read_header();
-      read_response();
+      std::ranges::fill(m_response_span, std::byte{ 0 });
+
+      auto header_packet = read_packet();
+      m_header = get_header(header_packet);
+      if (!m_header.is_valid()) {
+        m_state = state::failure;
+        break;
+      } else if (m_header.content_length > m_response_span.size()) {
+        m_state = state::failure;
+        break;
+      } else if (header_packet.size() < maximum_response_packet_size) {
+        std::copy_n(header_packet.begin() + m_header.header_length,
+                    m_header.content_length,
+                    m_response_span.begin());
+      } else {
+        // Pull out contents of body from header packet
+        size_t bytes_retrieved = header_packet.size() - m_header.header_length;
+        auto response_iterator =
+          std::copy_n(header_packet.begin() + m_header.header_length,
+                      bytes_retrieved,
+                      m_response_span.begin());
+        while (bytes_retrieved < m_header.content_length) {
+          auto new_packet = read_packet();
+          response_iterator = std::copy_n(
+            new_packet.begin(), new_packet.size(), response_iterator);
+          bytes_retrieved += header_packet.size();
+        }
+      }
+
       m_state = state::complete;
       break;
     }
     case state::complete:
+      break;
     case state::failure:
       break;
   }
