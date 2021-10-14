@@ -42,10 +42,16 @@ int main()
     return 1;
   }
 
+  printf("sizeof(esp) = %zu\n", sizeof(esp));
+
+  return 0;
+
   for (auto state = esp.get_status();
        state != embed::esp8266::state::connected_to_ap;
        state = esp.get_status()) {
     printf("\u001b[41m== state == %d ==\u001b[0m\n", static_cast<int>(state));
     // printf("state == %d", embed::esp8266::to_string(state).data());
   }
+
+  return 0;
 }
