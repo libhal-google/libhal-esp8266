@@ -14,5 +14,4 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 target_compile_definitions(${PROJECT_NAME} PRIVATE -DPLATFORM=test)
 target_link_libraries(${PROJECT_NAME} PRIVATE
 libesp8266::libesp8266
-libembeddedhal::libembeddedhal
-nonstd::ring-span-lite)
+libembeddedhal::libembeddedhal)

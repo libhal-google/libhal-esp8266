@@ -1,15 +1,11 @@
 #pragma once
 
 #include <array>
-#include <atomic>
-#include <charconv>
-#include <memory_resource>
 #include <span>
-#include <string>
+#include <string_view>
 
 #include <libembeddedhal/driver.hpp>
 #include <libembeddedhal/serial.hpp>
-#include <nonstd/ring_span.hpp>
 
 namespace embed {
 
