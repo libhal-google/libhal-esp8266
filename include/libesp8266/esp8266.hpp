@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <span>
 #include <string_view>
 
