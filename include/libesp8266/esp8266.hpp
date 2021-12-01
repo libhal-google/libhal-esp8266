@@ -7,7 +7,7 @@
 #include <string_view>
 
 #include <libembeddedhal/driver.hpp>
-#include <libembeddedhal/serial.hpp>
+#include <libembeddedhal/serial/serial.hpp>
 
 namespace embed {
 
