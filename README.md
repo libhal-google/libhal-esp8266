@@ -1,7 +1,7 @@
 # libeps8266
 
 Library for controlling esp8266 WiFi modules via serial AT commands using the
-libembeddedhal interfaces.
+libhal interfaces.
 
 ## 🏗️ WARNING: Work in progress! 🚧
 - Only supports GET requests
