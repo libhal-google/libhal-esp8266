@@ -6,20 +6,21 @@
 #include <span>
 #include <string_view>
 
-#include <libembeddedhal/driver.hpp>
-#include <libembeddedhal/serial/serial.hpp>
+#include <libhal/driver.hpp>
+#include <libhal/serial/serial.hpp>
 
-namespace embed {
+namespace hal {
 
 class read_into_buffer
 {
 public:
-  read_into_buffer(embed::serial& p_serial)
+  read_into_buffer(hal::serial& p_serial)
     : m_serial{ p_serial }
     , m_memory{}
-  {}
+  {
+  }
 
-  void new_buffer(std::span<std::byte> p_memory)
+  void new_buffer(std::span<hal::byte> p_memory)
   {
     m_memory = p_memory;
     m_read_index = 0;
@@ -37,22 +38,23 @@ public:
   }
 
 private:
-  embed::serial& m_serial;
-  std::span<std::byte> m_memory;
+  hal::serial& m_serial;
+  std::span<hal::byte> m_memory;
   int m_read_index = 0;
 };
 
 class command_and_find_response
 {
 public:
-  command_and_find_response(embed::serial& p_serial)
+  command_and_find_response(hal::serial& p_serial)
     : m_serial(p_serial)
     , m_command{}
     , m_sequence{}
-  {}
+  {
+  }
 
-  void new_search(std::span<const std::byte> p_command,
-                  std::span<const std::byte> p_sequence)
+  void new_search(std::span<const hal::byte> p_command,
+                  std::span<const hal::byte> p_sequence)
   {
     m_search_index = 0;
     m_sent_command = false;
@@ -62,7 +64,7 @@ public:
 
   bool done()
   {
-    std::array<std::byte, 1> buffer;
+    std::array<hal::byte, 1> buffer;
 
     if (m_search_index == m_sequence.size()) {
       return true;
@@ -89,17 +91,18 @@ public:
 private:
   size_t m_search_index = 0;
   bool m_sent_command = false;
-  embed::serial& m_serial;
-  std::span<const std::byte> m_command;
-  std::span<const std::byte> m_sequence;
+  hal::serial& m_serial;
+  std::span<const hal::byte> m_command;
+  std::span<const hal::byte> m_sequence;
 };
 
 class read_integer
 {
 public:
-  read_integer(embed::serial& p_serial)
+  read_integer(hal::serial& p_serial)
     : m_serial(p_serial)
-  {}
+  {
+  }
 
   void restart()
   {
@@ -110,7 +113,7 @@ public:
 
   bool done()
   {
-    std::array<std::byte, 1> buffer;
+    std::array<hal::byte, 1> buffer;
 
     if (m_finished) {
       return true;
@@ -136,10 +139,10 @@ private:
   bool m_finished = true;
   bool m_found_digit = false;
   uint32_t m_integer = 0;
-  embed::serial& m_serial;
+  hal::serial& m_serial;
 };
 
-std::string_view to_string_view(std::span<std::byte> byte_sequence)
+std::string_view to_string_view(std::span<hal::byte> byte_sequence)
 {
   return std::string_view{ reinterpret_cast<const char*>(byte_sequence.data()),
                            reinterpret_cast<const char*>(
@@ -156,7 +159,7 @@ auto to_bytes(std::string_view byte_sequence)
  * connecting to web servers.
  *
  */
-class esp8266 : public embed::driver<>
+class esp8266
 {
 public:
   /// Default baud rate for the esp8266 AT commands
@@ -241,7 +244,7 @@ public:
      * if there is no data to be sent.
      *
      */
-    std::span<const std::byte> send_data = {};
+    std::span<const hal::byte> send_data = {};
     /**
      * @brief which server port number to connect to.
      *
@@ -299,10 +302,10 @@ public:
    * @param p_baud_rate the operating baud rate for the esp8266
    *
    */
-  esp8266(embed::serial& p_serial,
+  esp8266(hal::serial& p_serial,
           std::string_view p_ssid,
           std::string_view p_password,
-          std::span<std::byte> p_response_span)
+          std::span<hal::byte> p_response_span)
     : m_serial{ p_serial }
     , m_response{ p_response_span }
     , m_ssid{ p_ssid }
@@ -311,7 +314,8 @@ public:
     , m_integer_reader{ m_serial }
     , m_reader{ m_serial }
     , m_packet{}
-  {}
+  {
+  }
 
   bool driver_initialize() override;
   /**
@@ -359,10 +363,10 @@ public:
    * should not be called unless the progress() function returns "completed",
    * otherwise the contents of the buffer are undefined.
    *
-   * @return std::span<std::byte> a span that points to p_response_buffer with a
+   * @return std::span<hal::byte> a span that points to p_response_buffer with a
    * size equal to the number of bytes retrieved from the response buffer.
    */
-  std::span<const std::byte> response() { return m_response; }
+  std::span<const hal::byte> response() { return m_response; }
 
 private:
   void write(std::string_view p_string)
@@ -376,7 +380,7 @@ private:
 
   void transition_state();
 
-  header_t response_header_from_string(std::span<std::byte> p_header_info)
+  header_t response_header_from_string(std::span<hal::byte> p_header_info)
   {
     std::string_view header_info = to_string_view(p_header_info);
 
@@ -420,13 +424,13 @@ private:
   }
 
   serial& m_serial;
-  std::span<std::byte> m_response;
+  std::span<hal::byte> m_response;
   std::string_view m_ssid;
   std::string_view m_password;
   command_and_find_response m_commander;
   read_into_buffer m_reader;
   read_integer m_integer_reader;
-  std::array<std::byte, maximum_response_packet_size> m_packet;
+  std::array<hal::byte, maximum_response_packet_size> m_packet;
   request_t m_request;
   header_t m_header;
   state m_state = state::reset;
@@ -440,18 +444,19 @@ template<size_t ResponseBufferSize = esp8266::maximum_response_packet_size>
 class static_esp8266 : public esp8266
 {
 public:
-  static_esp8266(embed::serial& p_serial,
+  static_esp8266(hal::serial& p_serial,
                  std::string_view p_ssid,
                  std::string_view p_password)
     : esp8266(p_serial, p_ssid, p_password, m_response_buffer)
-  {}
+  {
+  }
 
 private:
-  std::array<std::byte, ResponseBufferSize> m_response_buffer;
+  std::array<hal::byte, ResponseBufferSize> m_response_buffer;
 };
-} // namespace embed
+} // namespace hal
 
-namespace embed {
+namespace hal {
 inline bool esp8266::driver_initialize()
 {
   m_serial.settings().baud_rate = 115200;
@@ -579,7 +584,7 @@ inline void esp8266::transition_state()
 
       write(std::string_view(buffer.data(), cipsend_command_length));
 
-      m_commander.new_search(std::span<std::byte>{}, to_bytes(ok_response));
+      m_commander.new_search(std::span<hal::byte>{}, to_bytes(ok_response));
       m_next_state = state::sending_request;
       m_read_state = read_state::until_sequence;
     }
@@ -686,4 +691,4 @@ inline std::string_view esp8266::to_string(http_method p_method)
       return "PATCH";
   }
 }
-} // namespace embed
+} // namespace hal

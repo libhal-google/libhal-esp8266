@@ -2,12 +2,12 @@
 
 #include "../include/libesp8266/esp8266.hpp"
 
-class mock_serial : public embed::serial
+class mock_serial : public hal::serial
 {
   bool driver_initialize() override { return true; }
 
   [[nodiscard]] bool busy() override { return false; }
-  void write(std::span<const std::byte> p_data) override
+  void write(std::span<const hal::byte> p_data) override
   {
     for (const auto& byte : p_data) {
       putchar(std::to_integer<char>(byte));
@@ -15,7 +15,7 @@ class mock_serial : public embed::serial
   }
 
   [[nodiscard]] size_t bytes_available() override { return 1; }
-  std::span<const std::byte> read(std::span<std::byte> p_data) override
+  std::span<const hal::byte> read(std::span<hal::byte> p_data) override
   {
     static constexpr std::string_view ok = "OK\r\n";
     static constexpr std::string_view blank = "";
@@ -36,7 +36,7 @@ class mock_serial : public embed::serial
 int main()
 {
   mock_serial test;
-  embed::static_esp8266 esp(test, "SSID", "PASSWORD");
+  hal::static_esp8266 esp(test, "SSID", "PASSWORD");
   bool success = esp.initialize();
   if (!success) {
     return 1;
@@ -47,10 +47,10 @@ int main()
   return 0;
 
   for (auto state = esp.get_status();
-       state != embed::esp8266::state::connected_to_ap;
+       state != hal::esp8266::state::connected_to_ap;
        state = esp.get_status()) {
     printf("\u001b[41m== state == %d ==\u001b[0m\n", static_cast<int>(state));
-    // printf("state == %d", embed::esp8266::to_string(state).data());
+    // printf("state == %d", hal::esp8266::to_string(state).data());
   }
 
   return 0;

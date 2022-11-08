@@ -6,9 +6,9 @@ class libesp8266_conan(ConanFile):
     version = "0.0.1"
     license = "Apache License Version 2.0"
     author = "Khalil Estell"
-    url = "https://github.com/SJSU-Dev2/libesp8266"
+    url = "https://github.com/libhal/libesp8266"
     description = "Driver for controlling ESP8266 WIFI module via UART AT commands"
-    topics = ("wifi", "tcp", "ip", "esp8266", "hardware", "libembeddedhal")
+    topics = ("wifi", "tcp", "ip", "esp8266", "hardware", "libhal")
     exports_sources = "CMakeLists.txt", "include/*"
     no_copy_source = True
 
@@ -19,4 +19,4 @@ class libesp8266_conan(ConanFile):
         self.info.header_only()
 
     def requirements(self):
-        self.requires("libembeddedhal/0.0.1")
+        self.requires("libhal/0.0.1")
