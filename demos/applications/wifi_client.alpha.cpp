@@ -41,8 +41,8 @@ hal::status application()
   auto& uart3 = hal::lpc40xx::uart::get<3>();
   std::array<hal::byte, 4096> buffer{};
 
-  auto result = hal::esp8266::alpha::wifi_client::create(
-    uart3, "KAMMCE-PHONE", "roverteam", buffer);
+  auto result =
+    hal::esp8266::alpha::wifi_client::create(uart3, "ssid", "password", buffer);
 
   if (!result) {
     HAL_CHECK(hal::write(uart0, "Failed to create wifi client!\n"));
