@@ -1,5 +1,5 @@
 [requires]
-boost-ext-ut/1.1.8
+liblpc40xx/[x]
 libesp8266/[x]
 
 [generators]
