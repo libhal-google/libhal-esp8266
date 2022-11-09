@@ -3,19 +3,20 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cinttypes>
 #include <span>
 #include <string_view>
 
-#include <libhal/driver.hpp>
-#include <libhal/serial/serial.hpp>
+#include <libhal/serial/interface.hpp>
+#include <libhal/serial/util.hpp>
 
-namespace hal {
+namespace hal::esp8266::alpha {
 
 class read_into_buffer
 {
 public:
   read_into_buffer(hal::serial& p_serial)
-    : m_serial{ p_serial }
+    : m_serial{ &p_serial }
     , m_memory{}
   {
   }
@@ -26,28 +27,31 @@ public:
     m_read_index = 0;
   }
 
-  bool done()
+  result<bool> done()
   {
     if (m_read_index == m_memory.size()) {
       return true;
     } else {
-      m_read_index += m_serial.read(m_memory.subspan(m_read_index)).size();
+      m_read_index += HAL_CHECK(m_serial->read(m_memory.subspan(m_read_index)))
+                        .received.size();
     }
 
     return false;
   }
 
+  result<bool> operator()() { return done(); }
+
 private:
-  hal::serial& m_serial;
+  hal::serial* m_serial;
   std::span<hal::byte> m_memory;
-  int m_read_index = 0;
+  size_t m_read_index = 0;
 };
 
 class command_and_find_response
 {
 public:
   command_and_find_response(hal::serial& p_serial)
-    : m_serial(p_serial)
+    : m_serial(&p_serial)
     , m_command{}
     , m_sequence{}
   {
@@ -62,7 +66,7 @@ public:
     m_sequence = p_sequence;
   }
 
-  bool done()
+  result<bool> done()
   {
     std::array<hal::byte, 1> buffer;
 
@@ -71,16 +75,13 @@ public:
     }
 
     if (!m_sent_command) {
-      m_serial.write(m_command);
-      while (m_serial.busy()) {
-        continue;
-      }
+      HAL_CHECK(m_serial->write(m_command));
       m_sent_command = true;
     }
 
-    if (m_serial.bytes_available() >= 1U) {
-      auto received_byte = m_serial.read(buffer);
-      if (m_sequence[m_search_index++] != received_byte[0]) {
+    auto status = HAL_CHECK(m_serial->read(buffer));
+    if (status.received.size() == buffer.size()) {
+      if (m_sequence[m_search_index++] != status.received[0]) {
         m_search_index = 0;
       }
     }
@@ -88,10 +89,12 @@ public:
     return false;
   }
 
+  result<bool> operator()() { return done(); }
+
 private:
   size_t m_search_index = 0;
   bool m_sent_command = false;
-  hal::serial& m_serial;
+  hal::serial* m_serial;
   std::span<const hal::byte> m_command;
   std::span<const hal::byte> m_sequence;
 };
@@ -100,7 +103,7 @@ class read_integer
 {
 public:
   read_integer(hal::serial& p_serial)
-    : m_serial(p_serial)
+    : m_serial(&p_serial)
   {
   }
 
@@ -111,7 +114,7 @@ public:
     m_integer = 0;
   }
 
-  bool done()
+  result<bool> done()
   {
     std::array<hal::byte, 1> buffer;
 
@@ -119,11 +122,11 @@ public:
       return true;
     }
 
-    if (m_serial.bytes_available() >= 1U) {
-      auto received_byte = m_serial.read(buffer);
-      if (isdigit(std::to_integer<char>(received_byte[0]))) {
+    auto status = HAL_CHECK(m_serial->read(buffer));
+    if (status.received.size() == buffer.size()) {
+      if (std::isdigit(static_cast<char>(status.received[0]))) {
         m_integer *= 10;
-        m_integer += std::to_integer<int>(received_byte[0]) - '0';
+        m_integer += status.received[0] - hal::byte('0');
         m_found_digit = true;
       } else if (m_found_digit) {
         m_finished = true;
@@ -133,46 +136,43 @@ public:
     return m_finished;
   }
 
+  result<bool> operator()() { return done(); }
+
   auto get() { return m_integer; }
 
 private:
   bool m_finished = true;
   bool m_found_digit = false;
   uint32_t m_integer = 0;
-  hal::serial& m_serial;
+  hal::serial* m_serial;
 };
 
-std::string_view to_string_view(std::span<hal::byte> byte_sequence)
+inline std::string_view to_string_view(std::span<hal::byte> byte_sequence)
 {
   return std::string_view{ reinterpret_cast<const char*>(byte_sequence.data()),
                            reinterpret_cast<const char*>(
                              byte_sequence.data() + byte_sequence.size()) };
 }
 
-auto to_bytes(std::string_view byte_sequence)
-{
-  return std::as_bytes(std::span{ byte_sequence });
-}
-
 /**
- * @brief esp8266 AT command driver for connecting to WiFi Access points and
+ * @brief wifi_client AT command driver for connecting to WiFi Access points and
  * connecting to web servers.
  *
  */
-class esp8266
+class wifi_client
 {
 public:
-  /// Default baud rate for the esp8266 AT commands
+  /// Default baud rate for the wifi_client AT commands
   static constexpr uint32_t default_baud_rate = 115200;
   /// Confirmation response
   static constexpr char ok_response[] = "OK\r\n";
   /// Confirmation response after a wifi successfully connected
   static constexpr char wifi_connected[] = "WIFI GOT IP\r\n\r\nOK\r\n";
-  /// Confirmation response after a reset complets
+  /// Confirmation response after a reset completes
   static constexpr char reset_complete[] = "ready\r\n";
   /// End of header
   static constexpr std::string_view end_of_header = "\r\n\r\n";
-  /// The maximum packet size for esp8266 AT commands
+  /// The maximum packet size for wifi_client AT commands
   static constexpr size_t maximum_response_packet_size = 1460;
   static constexpr size_t maximum_transmit_packet_size = 2048;
 
@@ -227,7 +227,7 @@ public:
     /**
      * @brief path to the resource within the domain url. To get the root page,
      * use "/" (or "/index.html"). URL parameters can also be placed in the path
-     * as well such as "/search?query=esp8266&price=lowest"
+     * as well such as "/search?query=wifi_client&price=lowest"
      *
      */
     std::string_view path = "/";
@@ -296,30 +296,25 @@ public:
   };
 
   static std::string_view to_string(http_method p_method);
+  static std::string_view to_string(state p_method);
 
-  /**
-   * @param p_serial the serial port connected to the esp8266
-   * @param p_baud_rate the operating baud rate for the esp8266
-   *
-   */
-  esp8266(hal::serial& p_serial,
-          std::string_view p_ssid,
-          std::string_view p_password,
-          std::span<hal::byte> p_response_span)
-    : m_serial{ p_serial }
-    , m_response{ p_response_span }
-    , m_ssid{ p_ssid }
-    , m_password{ p_password }
-    , m_commander{ m_serial }
-    , m_integer_reader{ m_serial }
-    , m_reader{ m_serial }
-    , m_packet{}
+  static result<wifi_client> create(hal::serial& p_serial,
+                                    std::string_view p_ssid,
+                                    std::string_view p_password,
+                                    std::span<hal::byte> p_response_span)
   {
+    HAL_CHECK(p_serial.configure({
+      .baud_rate = 115200,
+      .stop = hal::serial::settings::stop_bits::one,
+      .parity = hal::serial::settings::parity::none,
+    }));
+
+    HAL_CHECK(p_serial.flush());
+    return wifi_client(p_serial, p_ssid, p_password, p_response_span);
   }
 
-  bool driver_initialize() override;
   /**
-   * @brief Change the access point to connect to. Running get_status() after
+   * @brief Change the access point to connect to. Running work() after
    * calling this will disconnect from the previous access point and attempt to
    * connect to the new one.
    *
@@ -357,7 +352,7 @@ public:
    * @return state is the state of the current transaction. This value
    * can be checked to determine if a certain stage is taking too long.
    */
-  state get_status();
+  result<state> work();
   /**
    * @brief Returns a const reference to the response buffer. This function
    * should not be called unless the progress() function returns "completed",
@@ -369,13 +364,31 @@ public:
   std::span<const hal::byte> response() { return m_response; }
 
 private:
-  void write(std::string_view p_string)
+  /**
+   * @param p_serial the serial port connected to the wifi_client
+   * @param p_baud_rate the operating baud rate for the wifi_client
+   *
+   */
+  wifi_client(hal::serial& p_serial,
+              std::string_view p_ssid,
+              std::string_view p_password,
+              std::span<hal::byte> p_response_span)
+    : m_serial{ &p_serial }
+    , m_response{ p_response_span }
+    , m_ssid{ p_ssid }
+    , m_password{ p_password }
+    , m_commander{ p_serial }
+    , m_reader{ p_serial }
+    , m_integer_reader{ p_serial }
+    , m_packet{}
+    , m_request{}
+    , m_header{}
   {
-    m_serial.flush();
-    m_serial.write(std::as_bytes(std::span{ p_string }));
-    while (m_serial.busy()) {
-      continue;
-    }
+  }
+
+  result<void> write(std::string_view p_string)
+  {
+    return hal::write(*m_serial, p_string);
   }
 
   void transition_state();
@@ -406,9 +419,8 @@ private:
       return failure_header;
     }
 
-    count = sscanf(&header_info[index],
-                   "Content-Length: %" PRIu32,
-                   &new_header.content_length);
+    count = sscanf(
+      &header_info[index], "Content-Length: %zu", &new_header.content_length);
     if (count != 1) {
       return failure_header;
     }
@@ -423,7 +435,7 @@ private:
     return new_header;
   }
 
-  serial& m_serial;
+  serial* m_serial;
   std::span<hal::byte> m_response;
   std::string_view m_ssid;
   std::string_view m_password;
@@ -436,59 +448,35 @@ private:
   state m_state = state::reset;
   state m_next_state = state::reset;
   read_state m_read_state = read_state::complete;
-  int m_request_length = 0;
-  int m_response_position = 0;
-};
-
-template<size_t ResponseBufferSize = esp8266::maximum_response_packet_size>
-class static_esp8266 : public esp8266
-{
-public:
-  static_esp8266(hal::serial& p_serial,
-                 std::string_view p_ssid,
-                 std::string_view p_password)
-    : esp8266(p_serial, p_ssid, p_password, m_response_buffer)
-  {
-  }
-
-private:
-  std::array<hal::byte, ResponseBufferSize> m_response_buffer;
+  size_t m_request_length = 0;
+  size_t m_response_position = 0;
 };
 } // namespace hal
 
-namespace hal {
-inline bool esp8266::driver_initialize()
-{
-  m_serial.settings().baud_rate = 115200;
-  m_serial.settings().frame_size = 8;
-  m_serial.settings().parity = serial_settings::parity::none;
-  m_serial.settings().stop = serial_settings::stop_bits::one;
-  if (!m_serial.initialize()) {
-    return false;
-  }
-  m_serial.flush();
-  m_state = state::reset;
-  return true;
-}
-inline void esp8266::change_access_point(std::string_view p_ssid,
-                                         std::string_view p_password)
+namespace hal::esp8266::alpha {
+inline void wifi_client::change_access_point(std::string_view p_ssid,
+                                             std::string_view p_password)
 {
   m_ssid = p_ssid;
   m_password = p_password;
-  m_next_state = state::connected_to_ap;
+  if (connected()) {
+    m_next_state = state::connected_to_ap;
+  }
 }
-inline bool esp8266::connected()
+
+inline bool wifi_client::connected()
 {
-  return m_state >= state::connected_to_ap;
+  return static_cast<int>(m_state) >= static_cast<int>(state::connected_to_ap);
 }
-inline void esp8266::request(request_t p_request)
+
+inline void wifi_client::request(request_t p_request)
 {
   m_request = p_request;
   m_next_state = state::connecting_to_server;
   transition_state();
 }
 
-inline auto esp8266::get_status() -> state
+inline result<wifi_client::state> wifi_client::work()
 {
   if (m_state == state::reset) {
     transition_state();
@@ -496,17 +484,17 @@ inline auto esp8266::get_status() -> state
 
   switch (m_read_state) {
     case read_state::until_sequence:
-      if (m_commander.done()) {
+      if (HAL_CHECK(m_commander())) {
         m_read_state = read_state::complete;
       }
       break;
     case read_state::into_buffer:
-      if (m_reader.done()) {
+      if (HAL_CHECK(m_reader())) {
         m_read_state = read_state::complete;
       }
       break;
     case read_state::integer:
-      if (m_integer_reader.done()) {
+      if (HAL_CHECK(m_integer_reader())) {
         m_read_state = read_state::complete;
       }
       break;
@@ -518,20 +506,22 @@ inline auto esp8266::get_status() -> state
 
   return m_state;
 }
-inline void esp8266::transition_state()
+
+inline void wifi_client::transition_state()
 {
   switch (m_state) {
     case state::reset:
       m_next_state = state::disable_echo;
       break;
     case state::disable_echo:
-      m_commander.new_search(to_bytes("ATE0\r\n"), to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("ATE0\r\n"),
+                             hal::as_bytes(ok_response));
       m_next_state = state::configure_as_http_client;
       m_read_state = read_state::until_sequence;
       break;
     case state::configure_as_http_client:
-      m_commander.new_search(to_bytes("AT+CWMODE=1\r\n"),
-                             to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("AT+CWMODE=1\r\n"),
+                             hal::as_bytes(ok_response));
       m_next_state = state::attempting_ap_connection;
       m_read_state = read_state::until_sequence;
       break;
@@ -540,7 +530,8 @@ inline void esp8266::transition_state()
       write(m_ssid);
       write("\",\"");
       write(m_password);
-      m_commander.new_search(to_bytes("\"\r\n"), to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("\"\r\n"),
+                             hal::as_bytes(ok_response));
       m_next_state = state::connected_to_ap;
       m_read_state = read_state::until_sequence;
       break;
@@ -551,46 +542,50 @@ inline void esp8266::transition_state()
       write(m_request.domain);
       write("\",");
       write(m_request.port);
-      m_commander.new_search(to_bytes("\r\n"), to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("\r\n"), hal::as_bytes(ok_response));
       m_next_state = state::preparing_request;
       m_read_state = read_state::until_sequence;
       break;
     case state::preparing_request: {
-      m_request_length = snprintf(reinterpret_cast<char*>(m_response.data()),
-                                  m_response.size(),
-                                  // Request
-                                  "GET %s HTTP/1.1\r\n"
-                                  // Host Field
-                                  "Host: %s:%s\r\n"
-                                  // End of header
-                                  "\r\n\r\n",
-                                  m_request.path.data(),
-                                  m_request.domain.data(),
-                                  m_request.port.data());
+      int length = snprintf(reinterpret_cast<char*>(m_response.data()),
+                            m_response.size(),
+                            // Request
+                            "GET %s HTTP/1.1\r\n"
+                            // Host Field
+                            "Host: %s:%s\r\n"
+                            // End of header
+                            "\r\n\r\n",
+                            m_request.path.data(),
+                            m_request.domain.data(),
+                            m_request.port.data());
 
-      if (m_request_length < 0) {
+      if (length >= 0) {
+        m_request_length = static_cast<size_t>(length);
+      } else {
         m_next_state = state::close_connection_failure;
         break;
       }
 
       std::array<char, 64> buffer;
-      int cipsend_command_length = snprintf(
-        buffer.data(), buffer.size(), "AT+CIPSEND=%d\r\n", m_request_length);
+      int cip_send_command_length = snprintf(
+        buffer.data(), buffer.size(), "AT+CIPSEND=%zu\r\n", m_request_length);
 
-      if (cipsend_command_length < 0) {
+      if (cip_send_command_length < 0) {
         m_next_state = state::close_connection_failure;
         break;
       }
 
-      write(std::string_view(buffer.data(), cipsend_command_length));
+      write(std::string_view(buffer.data(),
+                             static_cast<size_t>(cip_send_command_length)));
 
-      m_commander.new_search(std::span<hal::byte>{}, to_bytes(ok_response));
+      m_commander.new_search(std::span<hal::byte>{},
+                             hal::as_bytes(ok_response));
       m_next_state = state::sending_request;
       m_read_state = read_state::until_sequence;
     }
     case state::sending_request:
       m_commander.new_search(m_response.subspan(0, m_request_length),
-                             to_bytes("+IPD,"));
+                             hal::as_bytes("+IPD,"));
       m_next_state = state::get_first_packet_length;
       m_read_state = read_state::until_sequence;
       break;
@@ -650,14 +645,14 @@ inline void esp8266::transition_state()
       }
       break;
     case state::close_connection:
-      m_commander.new_search(to_bytes("AT+CIPCLOSE\r\n"),
-                             to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("AT+CIPCLOSE\r\n"),
+                             hal::as_bytes(ok_response));
       m_next_state = state::complete;
       m_read_state = read_state::until_sequence;
       break;
     case state::close_connection_failure:
-      m_commander.new_search(to_bytes("AT+CIPCLOSE\r\n"),
-                             to_bytes(ok_response));
+      m_commander.new_search(hal::as_bytes("AT+CIPCLOSE\r\n"),
+                             hal::as_bytes(ok_response));
       m_next_state = state::failure;
       m_read_state = read_state::until_sequence;
       break;
@@ -668,7 +663,7 @@ inline void esp8266::transition_state()
   }
 }
 
-inline std::string_view esp8266::to_string(http_method p_method)
+inline std::string_view wifi_client::to_string(http_method p_method)
 {
   switch (p_method) {
     case http_method::GET:
@@ -689,6 +684,48 @@ inline std::string_view esp8266::to_string(http_method p_method)
       return "TRACE";
     case http_method::PATCH:
       return "PATCH";
+  }
+}
+
+inline std::string_view wifi_client::to_string(state p_method)
+{
+  switch (p_method) {
+    case state::reset:
+      return "reset";
+    case state::disable_echo:
+      return "disable_echo";
+    case state::configure_as_http_client:
+      return "configure_as_http_client";
+    case state::attempting_ap_connection:
+      return "attempting_ap_connection";
+    case state::connected_to_ap:
+      return "connected_to_ap";
+    case state::connecting_to_server:
+      return "connecting_to_server";
+    case state::preparing_request:
+      return "preparing_request";
+    case state::sending_request:
+      return "sending_request";
+    case state::get_first_packet_length:
+      return "get_first_packet_length";
+    case state::reading_first_packet:
+      return "reading_first_packet";
+    case state::parsing_header:
+      return "parsing_header";
+    case state::get_packet_length:
+      return "get_packet_length";
+    case state::read_packet_into_response:
+      return "read_packet_into_response";
+    case state::get_next_packet:
+      return "get_next_packet";
+    case state::close_connection:
+      return "close_connection";
+    case state::close_connection_failure:
+      return "close_connection_failure";
+    case state::complete:
+      return "complete";
+    case state::failure:
+      return "failure";
   }
 }
 } // namespace hal
