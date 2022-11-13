@@ -39,7 +39,10 @@ public:
     return false;
   }
 
-  result<bool> operator()() { return done(); }
+  result<bool> operator()()
+  {
+    return done();
+  }
 
 private:
   hal::serial* m_serial;
@@ -89,7 +92,10 @@ public:
     return false;
   }
 
-  result<bool> operator()() { return done(); }
+  result<bool> operator()()
+  {
+    return done();
+  }
 
 private:
   size_t m_search_index = 0;
@@ -136,9 +142,15 @@ public:
     return m_finished;
   }
 
-  result<bool> operator()() { return done(); }
+  result<bool> operator()()
+  {
+    return done();
+  }
 
-  auto get() { return m_integer; }
+  auto get()
+  {
+    return m_integer;
+  }
 
 private:
   bool m_finished = true;
@@ -149,9 +161,8 @@ private:
 
 inline std::string_view to_string_view(std::span<hal::byte> byte_sequence)
 {
-  return std::string_view{ reinterpret_cast<const char*>(byte_sequence.data()),
-                           reinterpret_cast<const char*>(
-                             byte_sequence.data() + byte_sequence.size()) };
+  return std::string_view(reinterpret_cast<const char*>(byte_sequence.data()),
+                          byte_sequence.size());
 }
 
 /**
@@ -361,7 +372,10 @@ public:
    * @return std::span<hal::byte> a span that points to p_response_buffer with a
    * size equal to the number of bytes retrieved from the response buffer.
    */
-  std::span<const hal::byte> response() { return m_response; }
+  std::span<const hal::byte> response()
+  {
+    return m_response;
+  }
 
 private:
   /**
@@ -451,7 +465,7 @@ private:
   size_t m_request_length = 0;
   size_t m_response_position = 0;
 };
-} // namespace hal
+}  // namespace hal::esp8266::alpha
 
 namespace hal::esp8266::alpha {
 inline void wifi_client::change_access_point(std::string_view p_ssid,
@@ -728,4 +742,4 @@ inline std::string_view wifi_client::to_string(state p_method)
       return "failure";
   }
 }
-} // namespace hal
+}  // namespace hal::esp8266::alpha
