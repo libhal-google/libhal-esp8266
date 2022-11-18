@@ -1,0 +1,62 @@
+name: 🏗 Build Demos
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 12 * * 0'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: 📥 Install Arm GNU Toolchain (arm-none-eabi-gcc)
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        id: arm-none-eabi-gcc-action
+        with:
+          release: '11.3.Rel1'
+
+      - name: 📥 Install CMake
+        run: pip install cmake
+
+      - name: 📥 Install conan
+        run: pip install conan
+
+      - name: 📡 Add `libhal-trunk` conan remote
+        run: |
+             conan remote add libhal-trunk \
+             https://libhal.jfrog.io/artifactory/api/conan/trunk-conan --insert
+
+      - name: 📡 Enable conan revision mode
+        run: conan config set general.revisions_enabled=True
+
+      - name: 🔨 Make build directory
+        shell: bash
+        working-directory: demos
+        run: mkdir build
+
+      - name: 🐸 Locally install this library
+        shell: bash
+        run: conan create .
+
+      - name: 🐸 Install conan dependencies
+        shell: bash
+        working-directory: demos/build
+        run: conan install .. -s build_type=Debug
+
+      - name: 🗺️ CMake
+        shell: bash
+        working-directory: demos/build
+        run: cmake .. -DCMAKE_BUILD_TYPE=Debug -DTOOLCHAIN_PATH="${{ steps.arm-none-eabi-gcc-action.outputs.path }}/"
+
+      - name: 🛠 Make
+        shell: bash
+        working-directory: demos/build
+        run: make -j

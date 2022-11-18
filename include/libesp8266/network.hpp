@@ -5,35 +5,34 @@
 #include <libhal/error.hpp>
 
 namespace hal::esp8266 {
-class tcp_socket_client
+class socket_client
 {
 public:
-  struct send_t
+  struct write_t
   {
-    std::span<const hal::byte> sent;
+    std::span<const hal::byte> data;
   };
 
-  struct receive_t
+  struct read_t
   {
-    std::span<hal::byte> received;
+    std::span<hal::byte> data;
   };
 
-  [[nodiscard]] hal::result<send_t> send(std::span<const hal::byte> p_data)
+  [[nodiscard]] hal::result<write_t> write(std::span<const hal::byte> p_data)
   {
-    return driver_send(p_data);
+    return driver_write(p_data);
   }
 
-  [[nodiscard]] hal::result<receive_t> receive(std::span<hal::byte> p_data)
+  [[nodiscard]] hal::result<read_t> read(std::span<hal::byte> p_data)
   {
-    return driver_receive(p_data);
+    return driver_read(p_data);
   }
 
-  virtual ~tcp_socket_client() = default;
+  virtual ~socket_client() = default;
 
 private:
-  virtual hal::result<send_t> driver_send(
+  virtual hal::result<write_t> driver_write(
     std::span<const hal::byte> p_data) = 0;
-  virtual hal::result<receive_t> driver_receive(
-    std::span<hal::byte> p_data) = 0;
+  virtual hal::result<read_t> driver_read(std::span<hal::byte> p_data) = 0;
 };
 }  // namespace hal::esp8266
