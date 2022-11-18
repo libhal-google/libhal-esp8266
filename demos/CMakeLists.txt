@@ -21,7 +21,7 @@ set(LINKER_SCRIPT_PATHS ${CMAKE_SOURCE_DIR}/)
 # List of demo applications
 # To add a new demo to the list, simply add its filename without the .cpp
 # extension to this list.
-set(DEMOS wifi_client.alpha)
+set(DEMOS wlan_client)
 
 # List of targets in the LPC40 series MCU
 # TODO: Add targets for LPC17 series MCUs as these libraries are mostly
