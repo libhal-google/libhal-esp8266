@@ -15,5 +15,5 @@ jobs:
   deploy_trunk:
     uses: libhal/libhal/.github/workflows/deploy.yml@main
     with:
-      library: liblpc40xx
+      library: libesp8266
     secrets: inherit
