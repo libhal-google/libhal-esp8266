@@ -7,11 +7,11 @@
 #include <libhal/serial/coroutines.hpp>
 #include <libhal/serial/interface.hpp>
 #include <libhal/serial/util.hpp>
+#include <libhal/socket/interface.hpp>
 #include <libhal/streams.hpp>
 #include <libhal/timeout.hpp>
 #include <string_view>
 
-#include "../network.hpp"
 #include "../util.hpp"
 
 namespace hal::esp8266::at {
