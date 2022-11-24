@@ -7,16 +7,16 @@
 #include <libhal/serial/coroutines.hpp>
 #include <libhal/serial/interface.hpp>
 #include <libhal/serial/util.hpp>
+#include <libhal/socket/interface.hpp>
 #include <libhal/streams.hpp>
 #include <string_view>
 
-#include "../network.hpp"
 #include "../util.hpp"
 #include "wlan_client.hpp"
 
 namespace hal::esp8266::at {
 
-class tcp_socket : public hal::esp8266::socket_client
+class tcp_socket : public hal::socket
 {
 public:
   static constexpr auto header = std::string_view("+IPD,");
@@ -64,61 +64,6 @@ public:
     return *this;
   }
 
-  hal::result<write_t> driver_write(std::span<const hal::byte> p_data)
-  {
-    if (p_data.size() > maximum_transmit_packet_size) {
-      return new_error(std::errc::file_too_large);
-    }
-
-    auto write_length = HAL_CHECK(integer_string::create(p_data.size()));
-    HAL_CHECK(hal::write(*m_serial, "AT+CIPSENDBUF="));
-    HAL_CHECK(hal::write(*m_serial, write_length.str()));
-    HAL_CHECK(hal::write(*m_serial, "\r\n"));
-    HAL_CHECK(hal::write(*m_serial, p_data));
-
-    return write_t{ .data = p_data };
-  }
-
-  hal::result<read_t> driver_read(std::span<hal::byte> p_data)
-  {
-    // Format of a TCP packet for the ESP8266 AT commands:
-    //
-    //  +IDP,[0-9]+:[.*]{1460}
-    //
-    // Starts with a header, then length, then a ':' character, then 1 to 1460
-    // bytes worth of payload data.
-
-    auto destination = p_data;
-
-    while (true) {
-      if (!HAL_CHECK(find_header())) {
-        break;
-      }
-
-      // Limit the read by either, whats left of the number of bytes in the
-      // packet or the size of the buffer passed to us.
-      const auto min = std::min(m_packet_bytes_read, destination.size());
-      // Subspan and grab the first "min" number of bytes
-      const auto data = destination.first(min);
-      // Read byte out of serial port's buffer
-      const auto bytes_read = HAL_CHECK(m_serial->read(data)).data;
-      // Deduct the number of bytes left in the current packet
-      m_packet_bytes_read -= bytes_read.size();
-      // Move the destination buffer forward by the number of bytes read
-      destination = destination.subspan(bytes_read.size());
-      if (m_packet_bytes_read == 0) {
-        reset();
-      }
-      if (bytes_read.empty() || destination.empty()) {
-        break;
-      }
-    }
-
-    auto delta = std::distance(p_data.begin(), destination.begin());
-
-    return read_t{ .data = p_data.first(static_cast<size_t>(delta)) };
-  }
-
   ~tcp_socket()
   {
     if (m_serial) {
@@ -163,6 +108,61 @@ private:
     m_find_start_of_header = hal::stream::find(hal::as_bytes(header));
     m_parse_packet_length = hal::stream::parse<size_t>();
     m_skip_colon = hal::stream::skip(1);
+  }
+
+  hal::result<write_t> driver_write(std::span<const hal::byte> p_data) noexcept
+  {
+    if (p_data.size() > maximum_transmit_packet_size) {
+      return new_error(std::errc::file_too_large);
+    }
+
+    auto write_length = HAL_CHECK(integer_string::create(p_data.size()));
+    HAL_CHECK(hal::write(*m_serial, "AT+CIPSENDBUF="));
+    HAL_CHECK(hal::write(*m_serial, write_length.str()));
+    HAL_CHECK(hal::write(*m_serial, "\r\n"));
+    HAL_CHECK(hal::write(*m_serial, p_data));
+
+    return write_t{ .data = p_data };
+  }
+
+  hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept
+  {
+    // Format of a TCP packet for the ESP8266 AT commands:
+    //
+    //  +IDP,[0-9]+:[.*]{1460}
+    //
+    // Starts with a header, then length, then a ':' character, then 1 to 1460
+    // bytes worth of payload data.
+
+    auto destination = p_data;
+
+    while (true) {
+      if (!HAL_CHECK(find_header())) {
+        break;
+      }
+
+      // Limit the read by either, whats left of the number of bytes in the
+      // packet or the size of the buffer passed to us.
+      const auto min = std::min(m_packet_bytes_read, destination.size());
+      // Subspan and grab the first "min" number of bytes
+      const auto data = destination.first(min);
+      // Read byte out of serial port's buffer
+      const auto bytes_read = HAL_CHECK(m_serial->read(data)).data;
+      // Deduct the number of bytes left in the current packet
+      m_packet_bytes_read -= bytes_read.size();
+      // Move the destination buffer forward by the number of bytes read
+      destination = destination.subspan(bytes_read.size());
+      if (m_packet_bytes_read == 0) {
+        reset();
+      }
+      if (bytes_read.empty() || destination.empty()) {
+        break;
+      }
+    }
+
+    auto delta = std::distance(p_data.begin(), destination.begin());
+
+    return read_t{ .data = p_data.first(static_cast<size_t>(delta)) };
   }
 
   hal::serial* m_serial;
