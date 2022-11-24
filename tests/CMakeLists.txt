@@ -30,6 +30,7 @@ find_package(libesp8266 REQUIRED CONFIG)
 add_executable(${PROJECT_NAME}
   at/wlan_client.test.cpp
   at/tcp_socket.test.cpp
+  util.test.cpp
   main.test.cpp)
 
 target_include_directories(${PROJECT_NAME} PUBLIC . ../include)
