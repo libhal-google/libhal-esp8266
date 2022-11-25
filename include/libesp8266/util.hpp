@@ -73,14 +73,16 @@ constexpr size_t status(std::string_view p_response)
   //
   //    HTTP/1.1 200 OK\r\n
   //
+  constexpr std::string_view protocol_version_1p0 = "HTTP/1.0 ";
   constexpr std::string_view protocol_version_1p1 = "HTTP/1.1 ";
-  const auto position_of_status = p_response.find(protocol_version_1p1);
-  if (std::string_view::npos == position_of_status) {
+  const auto status_position = std::min(p_response.find(protocol_version_1p0),
+                                        p_response.find(protocol_version_1p1));
+  if (std::string_view::npos == status_position) {
     return std::string_view::npos;
   }
 
   const auto status_and_beyond =
-    p_response.substr(position_of_status + protocol_version_1p1.size());
+    p_response.substr(status_position + protocol_version_1p1.size());
   const auto position_of_first_newline = status_and_beyond.find(end_of_line);
   if (std::string_view::npos == position_of_first_newline) {
     return std::string_view::npos;

@@ -29,7 +29,8 @@ find_package(libhal REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME}
   at/wlan_client.test.cpp
-  at/tcp_socket.test.cpp
+  at/socket.test.cpp
+  http_response.test.cpp
   util.test.cpp
   main.test.cpp)
 

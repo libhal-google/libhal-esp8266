@@ -16,7 +16,7 @@
 
 namespace hal::esp8266::at {
 
-class tcp_socket;
+class socket;
 /**
  * @brief wlan_client AT command driver for connecting to WiFi Access points
  *
@@ -52,7 +52,7 @@ public:
     return client;
   }
 
-  friend class tcp_socket;
+  friend class socket;
 
 private:
   /**
