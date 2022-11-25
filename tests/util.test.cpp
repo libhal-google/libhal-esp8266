@@ -4,7 +4,7 @@
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::http {
-boost::ut::suite util_test_test = []() {
+boost::ut::suite util_test = []() {
   using namespace boost::ut;
   using namespace std::literals;
 

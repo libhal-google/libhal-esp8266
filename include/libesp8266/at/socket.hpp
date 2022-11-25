@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string_view>
 
 #include <libhal/as_bytes.hpp>
 #include <libhal/serial/coroutines.hpp>
@@ -9,41 +10,99 @@
 #include <libhal/serial/util.hpp>
 #include <libhal/socket/interface.hpp>
 #include <libhal/streams.hpp>
-#include <string_view>
 
 #include "../util.hpp"
 #include "wlan_client.hpp"
 
 namespace hal::esp8266::at {
 
-class tcp_socket : public hal::socket
+class socket : public hal::socket
 {
 public:
   static constexpr auto header = std::string_view("+IPD,");
+  static constexpr auto send_finished = std::string_view("SEND OK\r\n");
 
-  static result<tcp_socket> create(at::wlan_client& p_wlan_client,
-                                   std::string_view p_domain,
-                                   std::string_view p_port,
-                                   timeout auto p_timeout)
+  static result<socket> create(at::wlan_client& p_wlan_client,
+                               hal::socket::type p_type,
+                               timeout auto p_timeout,
+                               std::string_view p_domain,
+                               std::string_view p_port = "")
   {
     auto& wlan_serial = *p_wlan_client.m_serial;
-    auto expected_response = hal::as_bytes(ok_response);
+    const auto expected_response = hal::as_bytes(ok_response);
+
+    if (p_port.empty()) {
+      switch (p_type) {
+        case hal::socket::type::tcp:
+          p_port = "80";
+          break;
+        case hal::socket::type::udp:
+          p_port = "80";
+          break;
+        case hal::socket::type::ssl:
+          p_port = "443";
+          break;
+      }
+    }
+
+    std::string_view socket_type_str;
+
+    switch (p_type) {
+      case hal::socket::type::tcp:
+        socket_type_str = "TCP";
+        break;
+      case hal::socket::type::udp:
+        socket_type_str = "UDP";
+        break;
+      case hal::socket::type::ssl:
+        socket_type_str = "SSL";
+        HAL_CHECK(hal::write(wlan_serial, "AT+CIPSSLSIZE=4096\r\n"));
+        HAL_CHECK(
+          try_until(skip_past(wlan_serial, expected_response), p_timeout));
+        HAL_CHECK(hal::write(wlan_serial, "AT+CIPSSLCCONF=2\r\n"));
+        HAL_CHECK(
+          try_until(skip_past(wlan_serial, expected_response), p_timeout));
+        break;
+    }
 
     // Connect to web server
-    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSTART=\"TCP\",\""));
+    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSTART=\""));
+    HAL_CHECK(hal::write(wlan_serial, socket_type_str));
+    HAL_CHECK(hal::write(wlan_serial, "\",\""));
     HAL_CHECK(hal::write(wlan_serial, p_domain));
     HAL_CHECK(hal::write(wlan_serial, "\","));
     HAL_CHECK(hal::write(wlan_serial, p_port));
     HAL_CHECK(hal::write(wlan_serial, "\r\n"));
     HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
 
-    return tcp_socket(wlan_serial);
+    return socket(wlan_serial);
   }
 
-  tcp_socket(tcp_socket& p_other) = delete;
-  tcp_socket& operator=(tcp_socket& p_other) = delete;
+  static result<socket> create_ssl(at::wlan_client& p_wlan_client,
+                                   std::string_view p_domain,
+                                   std::string_view p_port,
+                                   timeout auto p_timeout)
+  {
+    auto& wlan_serial = *p_wlan_client.m_serial;
+    const auto expected_response = hal::as_bytes(ok_response);
 
-  tcp_socket(tcp_socket&& p_other)
+    // Connect to web server
+    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSSLSIZE=4096\r\n"));
+    HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
+    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSTART=\"SSL\",\""));
+    HAL_CHECK(hal::write(wlan_serial, p_domain));
+    HAL_CHECK(hal::write(wlan_serial, "\","));
+    HAL_CHECK(hal::write(wlan_serial, p_port));
+    HAL_CHECK(hal::write(wlan_serial, "\r\n"));
+    HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
+
+    return socket(wlan_serial);
+  }
+
+  socket(socket& p_other) = delete;
+  socket& operator=(socket& p_other) = delete;
+
+  socket(socket&& p_other)
     : m_serial(p_other.m_serial)
     , m_find_start_of_header(p_other.m_find_start_of_header)
     , m_parse_packet_length(p_other.m_parse_packet_length)
@@ -52,7 +111,7 @@ public:
     p_other.m_serial = nullptr;
   }
 
-  tcp_socket& operator=(tcp_socket&& p_other)
+  socket& operator=(socket&& p_other)
   {
     m_serial = p_other.m_serial;
     m_find_start_of_header = p_other.m_find_start_of_header;
@@ -64,7 +123,7 @@ public:
     return *this;
   }
 
-  ~tcp_socket()
+  ~socket()
   {
     if (m_serial) {
       // Attempt to close the TCP socket and ignore any errors with
@@ -74,7 +133,7 @@ public:
   }
 
 private:
-  tcp_socket(hal::serial& p_serial)
+  socket(hal::serial& p_serial)
     : m_serial(&p_serial)
     , m_find_start_of_header(hal::as_bytes(header))
     , m_parse_packet_length{}
@@ -112,15 +171,20 @@ private:
 
   hal::result<write_t> driver_write(std::span<const hal::byte> p_data) noexcept
   {
+    using namespace std::literals;
     if (p_data.size() > maximum_transmit_packet_size) {
       return new_error(std::errc::file_too_large);
     }
 
     auto write_length = HAL_CHECK(integer_string::create(p_data.size()));
-    HAL_CHECK(hal::write(*m_serial, "AT+CIPSENDBUF="));
+    HAL_CHECK(hal::write(*m_serial, "AT+CIPSEND="));
     HAL_CHECK(hal::write(*m_serial, write_length.str()));
     HAL_CHECK(hal::write(*m_serial, "\r\n"));
+    HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)),
+                        hal::never_timeout()));
     HAL_CHECK(hal::write(*m_serial, p_data));
+    HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(send_finished)),
+                        hal::never_timeout()));
 
     return write_t{ .data = p_data };
   }

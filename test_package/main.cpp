@@ -3,7 +3,7 @@
 
 #include <array>
 
-#include <libesp8266/at/tcp_socket.hpp>
+#include <libesp8266/at/socket.hpp>
 #include <libesp8266/at/wlan_client.hpp>
 #include <libhal/serial/util.hpp>
 #include <libhal/steady_clock/util.hpp>
@@ -15,13 +15,16 @@ int main()
 {
   using namespace std::literals;
   hal::esp8266::mock_serial mock;
-  mock.m_stream_out =
-    hal::esp8266::stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n"sv);
+  mock.m_stream_out = hal::esp8266::stream_out(
+    "ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n>SEND OK\r\n"sv);
   auto wlan_client = hal::esp8266::at::wlan_client::create(
                        mock, "ssid", "password", hal::never_timeout())
                        .value();
-  auto tcp = hal::esp8266::at::tcp_socket::create(
-               wlan_client, "example.com", "80", hal::never_timeout())
+  auto tcp = hal::esp8266::at::socket::create(wlan_client,
+                                              hal::socket::type::tcp,
+                                              hal::never_timeout(),
+                                              "example.com",
+                                              "80")
                .value();
   tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
   mock.m_stream_out =

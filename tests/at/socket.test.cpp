@@ -1,41 +1,47 @@
-#include <libesp8266/at/tcp_socket.hpp>
+#include <libesp8266/at/socket.hpp>
 
 #include "../helpers.hpp"
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::at {
-boost::ut::suite tcp_socket_test = []() {
+boost::ut::suite socket_test = []() {
   using namespace boost::ut;
 
-  "tcp_socket::create() oneshot"_test = []() {
+  "socket::create() oneshot"_test = []() {
     using namespace std::literals;
     // Setup
     mock_serial mock;
     mock.m_stream_out =
-      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n"sv);
+      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n>SEND OK\r\n"sv);
     auto wlan_client =
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
 
     // Exercise
     // Verify
-    auto tcp =
-      tcp_socket::create(wlan_client, "example.com", "80", hal::never_timeout())
-        .value();
+    auto tcp = socket::create(wlan_client,
+                              hal::socket::type::tcp,
+                              hal::never_timeout(),
+                              "example.com",
+                              "80")
+                 .value();
   };
 
-  "tcp_socket::create() oneshot"_test = []() {
+  "socket::create() oneshot"_test = []() {
     using namespace std::literals;
     // Setup
     mock_serial mock;
     mock.m_stream_out =
-      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n"sv);
+      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n>SEND OK\r\n"sv);
     auto wlan_client =
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
-    auto tcp =
-      tcp_socket::create(wlan_client, "example.com", "80", hal::never_timeout())
-        .value();
+    auto tcp = socket::create(wlan_client,
+                              hal::socket::type::tcp,
+                              hal::never_timeout(),
+                              "example.com",
+                              "80")
+                 .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
     std::array<hal::byte, 1024> buffer;
@@ -51,18 +57,21 @@ boost::ut::suite tcp_socket_test = []() {
            actual_response.data());
   };
 
-  "tcp_socket::create() receive chunks"_test = []() {
+  "socket::create() receive chunks"_test = []() {
     using namespace std::literals;
     // Setup
     mock_serial mock;
     mock.m_stream_out =
-      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n"sv);
+      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n>SEND OK\r\n"sv);
     auto wlan_client =
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
-    auto tcp =
-      tcp_socket::create(wlan_client, "example.com", "80", hal::never_timeout())
-        .value();
+    auto tcp = socket::create(wlan_client,
+                              hal::socket::type::tcp,
+                              hal::never_timeout(),
+                              "example.com",
+                              "80")
+                 .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye,"sv);
 
@@ -90,18 +99,21 @@ boost::ut::suite tcp_socket_test = []() {
            buffer.data());
   };
 
-  "tcp_socket::create() read chunks"_test = []() {
+  "socket::create() read chunks"_test = []() {
     using namespace std::literals;
     // Setup
     mock_serial mock;
     mock.m_stream_out =
-      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n"sv);
+      stream_out("ready\r\n OK\r\n OK\r\n OK\r\n OK\r\n OK\r\n>SEND OK\r\n"sv);
     auto wlan_client =
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
-    auto tcp =
-      tcp_socket::create(wlan_client, "example.com", "80", hal::never_timeout())
-        .value();
+    auto tcp = socket::create(wlan_client,
+                              hal::socket::type::tcp,
+                              hal::never_timeout(),
+                              "example.com",
+                              "80")
+                 .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
 
