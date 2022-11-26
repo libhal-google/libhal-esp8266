@@ -4,4 +4,4 @@ __ram = 0x10000000;
 __ram_size = 64K;
 __stack_size = 1K;
 
-INCLUDE "common.ld"
+INCLUDE "arm_common.ld"

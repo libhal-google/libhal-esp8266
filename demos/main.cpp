@@ -1,24 +1,18 @@
-#include <cinttypes>
-#include <libarmcortex/startup.hpp>
-#include <libarmcortex/system_control.hpp>
-#include <libhal/error.hpp>
-
-// Application function must be implemented by one of the compilation units
-// (.cpp) files.
-extern hal::status application();
+#include "hardware_map.hpp"
 
 int main()
 {
-  hal::cortex_m::initialize_data_section();
+  auto init_result = initialize_target();
 
-  if (!hal::is_platform("lpc4074")) {
-    hal::cortex_m::system_control::initialize_floating_point_unit();
+  if (!init_result) {
+    hal::halt();
   }
 
-  auto is_finished = application();
+  auto hardware_map = init_result.value();
+  auto is_finished = application(hardware_map);
 
   if (!is_finished) {
-    hal::cortex_m::system_control::reset();
+    hardware_map.reset();
   } else {
     hal::halt();
   }
@@ -31,4 +25,4 @@ void throw_exception(std::exception const& e)
 {
   std::abort();
 }
-} // namespace boost
+}  // namespace boost

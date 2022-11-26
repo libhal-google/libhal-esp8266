@@ -26,7 +26,7 @@ set(DEMOS wlan_client http_get)
 # List of targets in the LPC40 series MCU
 # TODO: Add targets for LPC17 series MCUs as these libraries are mostly
 # compatible
-set(TARGETS lpc4078)
+set(TARGETS lpc4078 stm32f103)
 
 # Iterate through each possible target and demo and generate a "make" target
 # for each.
@@ -34,14 +34,20 @@ foreach(target IN LISTS TARGETS)
     foreach(demo IN LISTS DEMOS)
         set(current_project ${target}_${demo})
         message(STATUS "Generating Demo for \"${current_project}\"")
-        add_executable(${current_project} main.cpp newlib.cpp
+        add_executable(${current_project}
+            main.cpp
+            newlib.cpp
+            targets/${target}/initializer.cpp
             applications/${demo}.cpp)
-        target_include_directories(${current_project} PUBLIC .)
+        target_include_directories(${current_project} PUBLIC
+            ./
+            targets/${target})
         target_compile_features(${current_project} PRIVATE cxx_std_20)
         set_target_properties(${current_project} PROPERTIES CXX_EXTENSIONS OFF)
         target_compile_options(${current_project} PRIVATE ${CORTEX_M4F_FLAGS})
         target_link_options(${current_project} PRIVATE ${CORTEX_M4F_FLAGS}
-            -L${LINKER_SCRIPT_PATHS} -T${LINKER_SCRIPT_PATHS}/${target}.ld
+            -L${LINKER_SCRIPT_PATHS}
+            -T${LINKER_SCRIPT_PATHS}/targets/${target}/${target}.ld
             -Wl,-Map=${current_project}.map,--cref -Wl,--gc-sections
             -Wl,--print-memory-usage)
         target_link_libraries(${current_project} PRIVATE
