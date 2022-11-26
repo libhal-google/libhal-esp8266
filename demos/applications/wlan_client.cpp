@@ -5,48 +5,31 @@
 #include <libhal/serial/util.hpp>
 #include <libhal/steady_clock/util.hpp>
 #include <libhal/timeout.hpp>
-#include <liblpc40xx/constants.hpp>
-#include <liblpc40xx/system_controller.hpp>
-#include <liblpc40xx/uart.hpp>
 
+#include "../hardware_map.hpp"
 #include "helper.hpp"
 
-hal::status application()
+hal::status application(hal::esp8266::hardware_map& p_map)
 {
   using namespace std::chrono_literals;
   using namespace hal::literals;
 
-  // Set the MCU to the maximum clock speed
-  HAL_CHECK(hal::lpc40xx::clock::maximum(12.0_MHz));
+  auto& counter = *p_map.counter;
+  auto& esp = *p_map.esp;
+  auto& debug = *p_map.debug;
 
-  // Create a hardware counter
-  auto& clock = hal::lpc40xx::clock::get();
-  auto cpu_frequency = clock.get_frequency(hal::lpc40xx::peripheral::cpu);
-  hal::cortex_m::dwt_counter counter(cpu_frequency);
-
-  // Get and initialize UART0 for UART based logging
-  auto& uart0 = hal::lpc40xx::uart::get<0>(hal::serial::settings{
-    .baud_rate = 38400,
-  });
-
-  HAL_CHECK(hal::write(uart0, "ESP8266 WiFi Client Application Starting...\n"));
-
-  // Get and initialize UART3 with a 8kB receive buffer
-  auto& uart3 = hal::lpc40xx::uart::get<3, 8192>();
-
-  // Create a uart mirror object to help with debugging uart3 transactions
-  serial_mirror mirror(uart3, uart0);
+  HAL_CHECK(hal::write(debug, "ESP8266 WiFi Client Application Starting...\n"));
 
   // 8kB buffer to read data into
   std::array<hal::byte, 8192> buffer{};
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
-    mirror, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 10s)));
+    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 10s)));
 
   // Return error and restart
   if (!wlan_client_result) {
-    HAL_CHECK(hal::write(uart0, "Failed to create wifi client!\n"));
+    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n"));
     return wlan_client_result.error();
   }
 
@@ -60,7 +43,7 @@ hal::status application()
     "80");
 
   if (!tcp_socket_result) {
-    HAL_CHECK(hal::write(uart0, "TCP Socket couldn't be established\n"));
+    HAL_CHECK(hal::write(debug, "TCP Socket couldn't be established\n"));
     return tcp_socket_result.error();
   }
 
@@ -76,9 +59,9 @@ hal::status application()
     buffer.fill('.');
 
     // Send out HTTP GET request
-    HAL_CHECK(hal::write(uart0, "Sending:\n\n"));
-    HAL_CHECK(hal::write(uart0, get_request));
-    HAL_CHECK(hal::write(uart0, "\n\n"));
+    HAL_CHECK(hal::write(debug, "Sending:\n\n"));
+    HAL_CHECK(hal::write(debug, get_request));
+    HAL_CHECK(hal::write(debug, "\n\n"));
     HAL_CHECK(tcp_socket.write(hal::as_bytes(get_request)));
 
     // Wait 1 second before reading response back
@@ -87,7 +70,7 @@ hal::status application()
     // Read response back from serial port
     auto received = HAL_CHECK(tcp_socket.read(buffer)).data;
 
-    HAL_CHECK(print_http_response_info(uart0, to_string_view(received)));
+    HAL_CHECK(print_http_response_info(debug, to_string_view(received)));
   }
 
   return hal::success();
