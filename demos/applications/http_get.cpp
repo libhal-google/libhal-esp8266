@@ -25,10 +25,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
-    esp,
-    "KAMMCE-PHONE",
-    "roverteam",
-    HAL_CHECK(hal::create_timeout(counter, 10s)));
+    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 10s)));
 
   // Check if the wlan_client creation was successful, if not return error and
   // reset device
@@ -80,7 +77,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     }
 
     // Wait 500ms before making another GET request
-    HAL_CHECK(hal::delay(counter, 500ms));
+    HAL_CHECK(hal::delay(counter, 100ms));
   }
 
   return hal::success();

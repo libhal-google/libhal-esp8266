@@ -13,6 +13,12 @@
 
 namespace hal::esp8266::http {
 
+enum class connection
+{
+  keep_alive,
+  close
+};
+
 class get
 {
 public:
@@ -22,21 +28,34 @@ public:
                             std::span<hal::byte> p_buffer,
                             std::string_view p_path,
                             std::string_view p_domain,
-                            std::string_view p_port = "")
+                            std::string_view p_port = "",
+                            connection p_keep_alive = connection::keep_alive)
   {
     using namespace std::literals;
 
-    // Send out GET request header
+    // Send GET request header line
     HAL_CHECK(p_socket.write(as_bytes("GET "sv)));
     HAL_CHECK(p_socket.write(as_bytes(p_path)));
     HAL_CHECK(p_socket.write(as_bytes(" HTTP/1.1\r\n"sv)));
+    // Send HOST line
     HAL_CHECK(p_socket.write(as_bytes("Host: "sv)));
     HAL_CHECK(p_socket.write(as_bytes(p_domain)));
     if (!p_port.empty()) {
       HAL_CHECK(p_socket.write(as_bytes(":"sv)));
       HAL_CHECK(p_socket.write(as_bytes(p_port)));
     }
-    HAL_CHECK(p_socket.write(as_bytes("\r\n\r\n"sv)));
+    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv)));
+    // Send keep alive line
+    switch (p_keep_alive) {
+      case connection::keep_alive:
+        HAL_CHECK(p_socket.write(as_bytes("Connection: keep-alive\r\n"sv)));
+        break;
+      case connection::close:
+        HAL_CHECK(p_socket.write(as_bytes("Connection: close\r\n"sv)));
+        break;
+    }
+    // Send final newline
+    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv)));
 
     return get(p_socket, p_buffer);
   }
