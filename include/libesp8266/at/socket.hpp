@@ -78,27 +78,6 @@ public:
     return socket(wlan_serial);
   }
 
-  static result<socket> create_ssl(at::wlan_client& p_wlan_client,
-                                   std::string_view p_domain,
-                                   std::string_view p_port,
-                                   timeout auto p_timeout)
-  {
-    auto& wlan_serial = *p_wlan_client.m_serial;
-    const auto expected_response = hal::as_bytes(ok_response);
-
-    // Connect to web server
-    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSSLSIZE=4096\r\n"));
-    HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
-    HAL_CHECK(hal::write(wlan_serial, "AT+CIPSTART=\"SSL\",\""));
-    HAL_CHECK(hal::write(wlan_serial, p_domain));
-    HAL_CHECK(hal::write(wlan_serial, "\","));
-    HAL_CHECK(hal::write(wlan_serial, p_port));
-    HAL_CHECK(hal::write(wlan_serial, "\r\n"));
-    HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
-
-    return socket(wlan_serial);
-  }
-
   socket(socket& p_other) = delete;
   socket& operator=(socket& p_other) = delete;
 

@@ -1,4 +1,3 @@
-#include <libarmcortex/dwt_counter.hpp>
 #include <libesp8266/at/socket.hpp>
 #include <libesp8266/at/wlan_client.hpp>
 #include <libesp8266/util.hpp>

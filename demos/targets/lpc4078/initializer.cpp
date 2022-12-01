@@ -24,14 +24,15 @@ hal::result<hal::esp8266::hardware_map> initialize_target()
   static hal::cortex_m::dwt_counter counter(cpu_frequency);
 
   // Get and initialize UART0 for UART based logging
-  auto& uart0 = hal::lpc40xx::uart::get<0, 64>(hal::serial::settings{
+  auto& uart0 = HAL_CHECK((hal::lpc40xx::uart::get<0, 64>(hal::serial::settings{
     .baud_rate = 38400,
-  });
+  })));
 
   // Get and initialize UART3 with a 8kB receive buffer
-  auto& uart3 = hal::lpc40xx::uart::get<3, 8192>(hal::serial::settings{
-    .baud_rate = 115200,
-  });
+  auto& uart3 =
+    HAL_CHECK((hal::lpc40xx::uart::get<3, 8192>(hal::serial::settings{
+      .baud_rate = 115200,
+    })));
 
   return hal::esp8266::hardware_map{
     .debug = &uart0,
