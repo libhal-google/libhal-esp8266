@@ -26,6 +26,7 @@ public:
 
   static result<get> create(hal::socket& p_socket,
                             std::span<hal::byte> p_buffer,
+                            timeout auto p_timeout,
                             std::string_view p_path,
                             std::string_view p_domain,
                             std::string_view p_port = "",
@@ -34,28 +35,30 @@ public:
     using namespace std::literals;
 
     // Send GET request header line
-    HAL_CHECK(p_socket.write(as_bytes("GET "sv)));
-    HAL_CHECK(p_socket.write(as_bytes(p_path)));
-    HAL_CHECK(p_socket.write(as_bytes(" HTTP/1.1\r\n"sv)));
+    HAL_CHECK(p_socket.write(as_bytes("GET "sv), p_timeout));
+    HAL_CHECK(p_socket.write(as_bytes(p_path), p_timeout));
+    HAL_CHECK(p_socket.write(as_bytes(" HTTP/1.1\r\n"sv), p_timeout));
     // Send HOST line
-    HAL_CHECK(p_socket.write(as_bytes("Host: "sv)));
-    HAL_CHECK(p_socket.write(as_bytes(p_domain)));
+    HAL_CHECK(p_socket.write(as_bytes("Host: "sv), p_timeout));
+    HAL_CHECK(p_socket.write(as_bytes(p_domain), p_timeout));
     if (!p_port.empty()) {
-      HAL_CHECK(p_socket.write(as_bytes(":"sv)));
-      HAL_CHECK(p_socket.write(as_bytes(p_port)));
+      HAL_CHECK(p_socket.write(as_bytes(":"sv), p_timeout));
+      HAL_CHECK(p_socket.write(as_bytes(p_port), p_timeout));
     }
-    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv)));
+    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv), p_timeout));
     // Send keep alive line
     switch (p_keep_alive) {
       case connection::keep_alive:
-        HAL_CHECK(p_socket.write(as_bytes("Connection: keep-alive\r\n"sv)));
+        HAL_CHECK(
+          p_socket.write(as_bytes("Connection: keep-alive\r\n"sv), p_timeout));
         break;
       case connection::close:
-        HAL_CHECK(p_socket.write(as_bytes("Connection: close\r\n"sv)));
+        HAL_CHECK(
+          p_socket.write(as_bytes("Connection: close\r\n"sv), p_timeout));
         break;
     }
     // Send final newline
-    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv)));
+    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv), p_timeout));
 
     return get(p_socket, p_buffer);
   }

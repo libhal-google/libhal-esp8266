@@ -9,6 +9,8 @@
 #include <libhal/serial/interface.hpp>
 #include <libhal/serial/util.hpp>
 #include <libhal/socket/interface.hpp>
+#include <libhal/steady_clock/interface.hpp>
+#include <libhal/steady_clock/util.hpp>
 #include <libhal/streams.hpp>
 
 #include "../util.hpp"
@@ -148,7 +150,9 @@ private:
     m_skip_colon = hal::stream::skip(1);
   }
 
-  hal::result<write_t> driver_write(std::span<const hal::byte> p_data) noexcept
+  hal::result<write_t> driver_write(
+    std::span<const hal::byte> p_data,
+    std::function<hal::timeout_function> p_timeout) noexcept override
   {
     using namespace std::literals;
     if (p_data.size() > maximum_transmit_packet_size) {
@@ -159,16 +163,15 @@ private:
     HAL_CHECK(hal::write(*m_serial, "AT+CIPSEND="));
     HAL_CHECK(hal::write(*m_serial, write_length.str()));
     HAL_CHECK(hal::write(*m_serial, "\r\n"));
-    HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)),
-                        hal::never_timeout()));
+    HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)), p_timeout));
     HAL_CHECK(hal::write(*m_serial, p_data));
-    HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(send_finished)),
-                        hal::never_timeout()));
+    HAL_CHECK(
+      try_until(skip_past(*m_serial, hal::as_bytes(send_finished)), p_timeout));
 
     return write_t{ .data = p_data };
   }
 
-  hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept
+  hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept override
   {
     // Format of a TCP packet for the ESP8266 AT commands:
     //

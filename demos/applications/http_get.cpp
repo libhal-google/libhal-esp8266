@@ -61,13 +61,14 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   while (true) {
     buffer.fill('.');
 
+    auto time_limit = HAL_CHECK(hal::create_timeout(counter, 5000ms));
+
     // Create http get request to example.com/ on port 80
     auto get_request = HAL_CHECK(hal::esp8266::http::get::create(
-      socket, buffer, "/", "example.com", "80"));
+      socket, buffer, time_limit, "/", "example.com", "80"));
 
     // Wait until GET request response is finished
-    auto state = HAL_CHECK(hal::try_until(
-      get_request, HAL_CHECK(hal::create_timeout(counter, 5000ms))));
+    auto state = HAL_CHECK(hal::try_until(get_request, time_limit));
 
     // If the state came back as finished, print the response to the user
     if (state == hal::work_state::finished) {
