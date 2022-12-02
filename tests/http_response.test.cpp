@@ -15,7 +15,8 @@ boost::ut::suite http_response_test = []() {
 
   private:
     hal::result<write_t> driver_write(
-      std::span<const hal::byte> p_data) noexcept
+      std::span<const hal::byte> p_data,
+      [[maybe_unused]] std::function<hal::timeout_function> p_timeout) noexcept
     {
       printf("%.*s", static_cast<int>(p_data.size()), p_data.data());
       return write_t{ p_data };
@@ -52,7 +53,9 @@ boost::ut::suite http_response_test = []() {
     fake_socket test_socket;
     test_socket.m_stream_out = stream_out(example_response);
     [[maybe_unused]] auto get_request =
-      get::create(test_socket, test_buffer, "/", "example.com", "80").value();
+      get::create(
+        test_socket, test_buffer, never_timeout(), "/", "example.com", "80")
+        .value();
 
     std::array<work_state, 80> work_states{};
 

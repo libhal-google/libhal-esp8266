@@ -61,7 +61,8 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     HAL_CHECK(hal::write(debug, "Sending:\n\n"));
     HAL_CHECK(hal::write(debug, get_request));
     HAL_CHECK(hal::write(debug, "\n\n"));
-    HAL_CHECK(tcp_socket.write(hal::as_bytes(get_request)));
+    HAL_CHECK(tcp_socket.write(hal::as_bytes(get_request),
+                               HAL_CHECK(hal::create_timeout(counter, 500ms))));
 
     // Wait 1 second before reading response back
     HAL_CHECK(hal::delay(counter, 1000ms));

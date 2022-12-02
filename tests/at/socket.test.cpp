@@ -42,7 +42,7 @@ boost::ut::suite socket_test = []() {
                               "example.com",
                               "80")
                  .value();
-    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
+    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
     std::array<hal::byte, 1024> buffer;
     buffer.fill('.');
@@ -72,7 +72,7 @@ boost::ut::suite socket_test = []() {
                               "example.com",
                               "80")
                  .value();
-    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
+    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye,"sv);
 
     // Exercise
@@ -114,7 +114,7 @@ boost::ut::suite socket_test = []() {
                               "example.com",
                               "80")
                  .value();
-    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv)).value();
+    tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
 
     // Exercise
