@@ -3,7 +3,7 @@
 #include "helpers.hpp"
 #include <boost/ut.hpp>
 
-namespace hal::esp8266::http {
+namespace hal::esp8266 {
 boost::ut::suite http_response_test = []() {
   using namespace boost::ut;
   using namespace std::literals;
@@ -53,8 +53,12 @@ boost::ut::suite http_response_test = []() {
     fake_socket test_socket;
     test_socket.m_stream_out = stream_out(example_response);
     [[maybe_unused]] auto get_request =
-      get::create(
-        test_socket, test_buffer, never_timeout(), "/", "example.com", "80")
+      http::create(test_socket,
+                   never_timeout(),
+                   { .response_buffer = test_buffer,
+                     .domain = "example.com",
+                     .path = "/",
+                     .port = "80" })
         .value();
 
     std::array<work_state, 80> work_states{};
@@ -78,4 +82,4 @@ boost::ut::suite http_response_test = []() {
            get_request.response().data());
   };
 };
-}  // namespace hal::esp8266::http
+}  // namespace hal::esp8266

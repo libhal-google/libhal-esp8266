@@ -64,9 +64,7 @@ private:
   size_t m_length;
 };
 
-namespace http {
-
-constexpr size_t status(std::string_view p_response)
+constexpr size_t http_status(std::string_view p_response)
 {
   using namespace std::literals;
   // Example header:
@@ -103,8 +101,8 @@ constexpr size_t status(std::string_view p_response)
   return status_value;
 }
 
-constexpr std::string_view header(std::string_view p_header,
-                                  std::string_view p_response)
+constexpr std::string_view http_header(std::string_view p_header,
+                                       std::string_view p_response)
 {
   using namespace std::literals;
   // Example header:
@@ -133,7 +131,7 @@ constexpr std::string_view header(std::string_view p_header,
   return full_line;
 }
 
-constexpr std::string_view body(std::string_view p_response)
+constexpr std::string_view http_body(std::string_view p_response)
 {
   using namespace std::literals;
   // Example header:
@@ -149,7 +147,7 @@ constexpr std::string_view body(std::string_view p_response)
   }
 
   const auto start_of_body = p_response.substr(position_of_body);
-  const auto length_string = header("Content-Length", p_response);
+  const auto length_string = http_header("Content-Length", p_response);
 
   if (length_string.empty()) {
     return "";
@@ -168,5 +166,4 @@ constexpr std::string_view body(std::string_view p_response)
 
   return full_line;
 }
-}  // namespace http
 }  // namespace hal::esp8266

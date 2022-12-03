@@ -47,7 +47,7 @@ private:
 
 struct mock_serial : public hal::serial
 {
-  status driver_configure(
+  hal::status driver_configure(
     [[maybe_unused]] const settings& p_settings) noexcept override
   {
     return hal::success();
@@ -69,7 +69,7 @@ struct mock_serial : public hal::serial
     return m_stream_out(p_data);
   }
 
-  status driver_flush() noexcept override
+  hal::status driver_flush() noexcept override
   {
     return hal::success();
   }

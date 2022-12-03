@@ -36,10 +36,12 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   auto wlan_client = wlan_client_result.value();
   auto tcp_socket_result = hal::esp8266::at::socket::create(
     wlan_client,
-    hal::socket::type::tcp,
     HAL_CHECK(hal::create_timeout(counter, 1s)),
-    "example.com",
-    "80");
+    {
+      .type = hal::socket::type::tcp,
+      .domain = "example.com",
+      .port = "80",
+    });
 
   if (!tcp_socket_result) {
     HAL_CHECK(hal::write(debug, "TCP Socket couldn't be established\n"));

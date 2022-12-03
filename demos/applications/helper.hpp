@@ -88,27 +88,27 @@ inline hal::status print_http_response_info(hal::serial& p_serial,
   HAL_CHECK(hal::write(p_serial, "================ Meta Data! ===========\n"));
   // Print HTTP Status Code
   HAL_CHECK(hal::write(p_serial, "HTTP Status: "));
-  HAL_CHECK(hal::write(p_serial, hal::esp8266::http::status(p_http_response)));
+  HAL_CHECK(hal::write(p_serial, hal::esp8266::http_status(p_http_response)));
   HAL_CHECK(hal::write(p_serial, "\n"));
   // Print out the content type
   HAL_CHECK(hal::write(p_serial, "Content-Type: "));
   HAL_CHECK(hal::write(
-    p_serial, hal::esp8266::http::header("Content-Type", p_http_response)));
+    p_serial, hal::esp8266::http_header("Content-Type", p_http_response)));
   HAL_CHECK(hal::write(p_serial, "\n"));
   // Print out the Date header flag
   HAL_CHECK(hal::write(p_serial, "Date: "));
   HAL_CHECK(
-    hal::write(p_serial, hal::esp8266::http::header("Date", p_http_response)));
+    hal::write(p_serial, hal::esp8266::http_header("Date", p_http_response)));
   HAL_CHECK(hal::write(p_serial, "\n"));
   // Print out the length of the body of the response
   HAL_CHECK(hal::write(p_serial, "Content-Length: "));
   HAL_CHECK(hal::write(
-    p_serial, hal::esp8266::http::header("Content-Length", p_http_response)));
+    p_serial, hal::esp8266::http_header("Content-Length", p_http_response)));
   HAL_CHECK(hal::write(p_serial, "\n"));
 
   // Print out the body of the response
   HAL_CHECK(hal::write(p_serial, "================ Body! ===========\n"));
-  HAL_CHECK(hal::write(p_serial, hal::esp8266::http::body(p_http_response)));
+  HAL_CHECK(hal::write(p_serial, hal::esp8266::http_body(p_http_response)));
   HAL_CHECK(hal::write(p_serial, "\n"));
   HAL_CHECK(
     hal::write(p_serial, "=================== /end ================\n"));

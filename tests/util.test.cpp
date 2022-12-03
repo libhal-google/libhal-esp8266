@@ -48,17 +48,17 @@ boost::ut::suite util_test = []() {
     decltype(headers) values;
 
     // Exercise
-    values[0] = header(headers[0], example_header);
-    values[1] = header(headers[1], example_header);
-    values[2] = header(headers[2], example_header);
-    values[3] = header(headers[3], example_header);
-    values[4] = header(headers[4], example_header);
-    values[5] = header(headers[5], example_header);
-    values[6] = header(headers[6], example_header);
-    values[7] = header(headers[7], example_header);
-    values[8] = header(headers[8], example_header);
-    values[9] = header(headers[9], example_header);
-    values[10] = header(headers[10], example_header);
+    values[0] = http_header(headers[0], example_header);
+    values[1] = http_header(headers[1], example_header);
+    values[2] = http_header(headers[2], example_header);
+    values[3] = http_header(headers[3], example_header);
+    values[4] = http_header(headers[4], example_header);
+    values[5] = http_header(headers[5], example_header);
+    values[6] = http_header(headers[6], example_header);
+    values[7] = http_header(headers[7], example_header);
+    values[8] = http_header(headers[8], example_header);
+    values[9] = http_header(headers[9], example_header);
+    values[10] = http_header(headers[10], example_header);
 
     // Verify
     expect(that % expected[0] == values[0]);
@@ -108,14 +108,14 @@ boost::ut::suite util_test = []() {
     decltype(expected) values;
 
     // Exercise
-    values[0] = status(protocol_line[0]);
-    values[1] = status(protocol_line[1]);
-    values[2] = status(protocol_line[2]);
-    values[3] = status(protocol_line[3]);
-    values[4] = status(protocol_line[4]);
-    values[5] = status(protocol_line[5]);
-    values[6] = status(protocol_line[6]);
-    values[7] = status(protocol_line[7]);
+    values[0] = http_status(protocol_line[0]);
+    values[1] = http_status(protocol_line[1]);
+    values[2] = http_status(protocol_line[2]);
+    values[3] = http_status(protocol_line[3]);
+    values[4] = http_status(protocol_line[4]);
+    values[5] = http_status(protocol_line[5]);
+    values[6] = http_status(protocol_line[6]);
+    values[7] = http_status(protocol_line[7]);
 
     // Verify
     expect(that % expected[0] == values[0]);
@@ -149,8 +149,8 @@ boost::ut::suite util_test = []() {
     decltype(expected) values;
 
     // Exercise
-    values[0] = body(protocol_line[0]);
-    values[1] = body(protocol_line[1]);
+    values[0] = http_body(protocol_line[0]);
+    values[1] = http_body(protocol_line[1]);
 
     // Verify
     expect(that % expected[0] == values[0]);
@@ -175,8 +175,8 @@ boost::ut::suite util_test = []() {
     decltype(expected) values;
 
     // Exercise
-    values[0] = body(protocol_line[0]);
-    values[1] = body(protocol_line[1]);
+    values[0] = http_body(protocol_line[0]);
+    values[1] = http_body(protocol_line[1]);
 
     // Verify
     expect(that % ""sv == values[0]);
@@ -202,8 +202,8 @@ boost::ut::suite util_test = []() {
     decltype(expected) values;
 
     // Exercise
-    values[0] = body(protocol_line[0]);
-    values[1] = body(protocol_line[1]);
+    values[0] = http_body(protocol_line[0]);
+    values[1] = http_body(protocol_line[1]);
 
     // Verify
     expect(that % ""sv == values[0]);
@@ -231,8 +231,8 @@ boost::ut::suite util_test = []() {
     decltype(expected) values;
 
     // Exercise
-    values[0] = body(protocol_line[0]);
-    values[1] = body(protocol_line[1]);
+    values[0] = http_body(protocol_line[0]);
+    values[1] = http_body(protocol_line[1]);
 
     // Verify
     expect(that % ""sv == values[0]);

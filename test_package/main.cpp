@@ -20,12 +20,12 @@ int main()
   auto wlan_client = hal::esp8266::at::wlan_client::create(
                        mock, "ssid", "password", hal::never_timeout())
                        .value();
-  auto tcp = hal::esp8266::at::socket::create(wlan_client,
-                                              hal::socket::type::tcp,
-                                              hal::never_timeout(),
-                                              "example.com",
-                                              "80")
-               .value();
+  auto tcp =
+    hal::esp8266::at::socket::create(
+      wlan_client,
+      hal::never_timeout(),
+      { .type = hal::socket::type::tcp, .domain = "example.com", .port = "80" })
+      .value();
   tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), hal::never_timeout())
     .value();
   mock.m_stream_out =

@@ -42,9 +42,12 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Create a TCP socket and connect it to example.com
   auto socket_result = hal::esp8266::at::socket::create(
     wlan_client,
-    hal::socket::type::tcp,
     HAL_CHECK(hal::create_timeout(counter, 5s)),
-    "example.com");
+    {
+      .type = hal::socket::type::tcp,
+      .domain = "example.com",
+      .port = "80",
+    });
 
   // Check if socket creation was successful, if not return error and reset
   // device
@@ -64,8 +67,13 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     auto time_limit = HAL_CHECK(hal::create_timeout(counter, 5000ms));
 
     // Create http get request to example.com/ on port 80
-    auto get_request = HAL_CHECK(hal::esp8266::http::get::create(
-      socket, buffer, time_limit, "/", "example.com", "80"));
+    auto get_request =
+      HAL_CHECK(hal::esp8266::http::create(socket,
+                                           time_limit,
+                                           { .response_buffer = buffer,
+                                             .domain = "example.com",
+                                             .path = "/",
+                                             .port = "80" }));
 
     // Wait until GET request response is finished
     auto state = HAL_CHECK(hal::try_until(get_request, time_limit));

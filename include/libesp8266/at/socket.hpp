@@ -18,6 +18,13 @@
 
 namespace hal::esp8266::at {
 
+struct socket_config
+{
+  hal::socket::type type = hal::socket::type::tcp;
+  std::string_view domain;
+  std::string_view port = "80";
+};
+
 class socket : public hal::socket
 {
 public:
@@ -25,31 +32,29 @@ public:
   static constexpr auto send_finished = std::string_view("SEND OK\r\n");
 
   static result<socket> create(at::wlan_client& p_wlan_client,
-                               hal::socket::type p_type,
                                timeout auto p_timeout,
-                               std::string_view p_domain,
-                               std::string_view p_port = "")
+                               socket_config p_config)
   {
     auto& wlan_serial = *p_wlan_client.m_serial;
     const auto expected_response = hal::as_bytes(ok_response);
 
-    if (p_port.empty()) {
-      switch (p_type) {
+    if (p_config.port.empty()) {
+      switch (p_config.type) {
         case hal::socket::type::tcp:
-          p_port = "80";
+          p_config.port = "80";
           break;
         case hal::socket::type::udp:
-          p_port = "80";
+          p_config.port = "80";
           break;
         case hal::socket::type::ssl:
-          p_port = "443";
+          p_config.port = "443";
           break;
       }
     }
 
     std::string_view socket_type_str;
 
-    switch (p_type) {
+    switch (p_config.type) {
       case hal::socket::type::tcp:
         socket_type_str = "TCP";
         break;
@@ -71,9 +76,9 @@ public:
     HAL_CHECK(hal::write(wlan_serial, "AT+CIPSTART=\""));
     HAL_CHECK(hal::write(wlan_serial, socket_type_str));
     HAL_CHECK(hal::write(wlan_serial, "\",\""));
-    HAL_CHECK(hal::write(wlan_serial, p_domain));
+    HAL_CHECK(hal::write(wlan_serial, p_config.domain));
     HAL_CHECK(hal::write(wlan_serial, "\","));
-    HAL_CHECK(hal::write(wlan_serial, p_port));
+    HAL_CHECK(hal::write(wlan_serial, p_config.port));
     HAL_CHECK(hal::write(wlan_serial, "\r\n"));
     HAL_CHECK(try_until(skip_past(wlan_serial, expected_response), p_timeout));
 
