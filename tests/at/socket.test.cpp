@@ -20,10 +20,10 @@ boost::ut::suite socket_test = []() {
     // Exercise
     // Verify
     auto tcp = socket::create(wlan_client,
-                              hal::socket::type::tcp,
                               hal::never_timeout(),
-                              "example.com",
-                              "80")
+                              { .type = hal::socket::type::tcp,
+                                .domain = "example.com",
+                                .port = "80" })
                  .value();
   };
 
@@ -37,10 +37,10 @@ boost::ut::suite socket_test = []() {
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
     auto tcp = socket::create(wlan_client,
-                              hal::socket::type::tcp,
                               hal::never_timeout(),
-                              "example.com",
-                              "80")
+                              { .type = hal::socket::type::tcp,
+                                .domain = "example.com",
+                                .port = "80" })
                  .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
@@ -67,10 +67,10 @@ boost::ut::suite socket_test = []() {
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
     auto tcp = socket::create(wlan_client,
-                              hal::socket::type::tcp,
                               hal::never_timeout(),
-                              "example.com",
-                              "80")
+                              { .type = hal::socket::type::tcp,
+                                .domain = "example.com",
+                                .port = "80" })
                  .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye,"sv);
@@ -109,10 +109,10 @@ boost::ut::suite socket_test = []() {
       wlan_client::create(mock, "ssid", "password", hal::never_timeout())
         .value();
     auto tcp = socket::create(wlan_client,
-                              hal::socket::type::tcp,
                               hal::never_timeout(),
-                              "example.com",
-                              "80")
+                              { .type = hal::socket::type::tcp,
+                                .domain = "example.com",
+                                .port = "80" })
                  .value();
     tcp.write(hal::as_bytes("Hello, World\r\n\r\n"sv), never_timeout()).value();
     mock.m_stream_out = stream_out("+IPD,15:Goodbye, World!+IPD,8:Packet 2"sv);
