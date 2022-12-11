@@ -2,8 +2,8 @@
 
 #include <string_view>
 
-#include <libhal/serial/interface.hpp>
-#include <libhal/serial/util.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal/serial.hpp>
 
 /**
  * @brief Debug serial data on one serial port via another

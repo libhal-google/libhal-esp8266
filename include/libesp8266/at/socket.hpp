@@ -4,14 +4,14 @@
 #include <cstdint>
 #include <string_view>
 
-#include <libhal/as_bytes.hpp>
-#include <libhal/serial/coroutines.hpp>
-#include <libhal/serial/interface.hpp>
-#include <libhal/serial/util.hpp>
-#include <libhal/socket/interface.hpp>
-#include <libhal/steady_clock/interface.hpp>
-#include <libhal/steady_clock/util.hpp>
-#include <libhal/streams.hpp>
+#include <libhal-util/as_bytes.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal-util/serial_coroutines.hpp>
+#include <libhal-util/steady_clock.hpp>
+#include <libhal-util/streams.hpp>
+#include <libhal/serial.hpp>
+#include <libhal/socket.hpp>
+#include <libhal/steady_clock.hpp>
 
 #include "../util.hpp"
 #include "wlan_client.hpp"
