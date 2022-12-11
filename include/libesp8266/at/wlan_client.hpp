@@ -2,15 +2,15 @@
 
 #include <algorithm>
 #include <cstdint>
-
-#include <libhal/as_bytes.hpp>
-#include <libhal/serial/coroutines.hpp>
-#include <libhal/serial/interface.hpp>
-#include <libhal/serial/util.hpp>
-#include <libhal/socket/interface.hpp>
-#include <libhal/streams.hpp>
-#include <libhal/timeout.hpp>
 #include <string_view>
+
+#include <libhal-util/as_bytes.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal-util/serial_coroutines.hpp>
+#include <libhal-util/streams.hpp>
+#include <libhal-util/timeout.hpp>
+#include <libhal/serial.hpp>
+#include <libhal/socket.hpp>
 
 #include "../util.hpp"
 

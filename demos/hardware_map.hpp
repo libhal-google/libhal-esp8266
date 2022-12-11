@@ -1,8 +1,9 @@
 #pragma once
 
 #include <functional>
-#include <libhal/serial/interface.hpp>
-#include <libhal/steady_clock/interface.hpp>
+
+#include <libhal/serial.hpp>
+#include <libhal/steady_clock.hpp>
 
 namespace hal::esp8266 {
 struct hardware_map

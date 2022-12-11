@@ -4,8 +4,8 @@
 #include <span>
 #include <string_view>
 
-#include <libhal/as_bytes.hpp>
-#include <libhal/streams.hpp>
+#include <libhal-util/as_bytes.hpp>
+#include <libhal-util/streams.hpp>
 #include <libhal/units.hpp>
 
 #include "at/socket.hpp"

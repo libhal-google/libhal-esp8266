@@ -5,10 +5,10 @@
 #include <span>
 #include <string_view>
 
-#include <libhal/as_bytes.hpp>
-#include <libhal/serial/coroutines.hpp>
-#include <libhal/serial/interface.hpp>
-#include <libhal/serial/util.hpp>
+#include <libhal-util/as_bytes.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal-util/serial_coroutines.hpp>
+#include <libhal/serial.hpp>
 #include <libhal/timeout.hpp>
 
 namespace hal::esp8266 {

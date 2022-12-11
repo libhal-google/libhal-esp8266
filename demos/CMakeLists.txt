@@ -14,6 +14,7 @@ list(APPEND CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 # Import the liblpc40xx library (and all of its dependencies)
 find_package(liblpc40xx REQUIRED CONFIG)
 find_package(libesp8266 REQUIRED CONFIG)
+find_package(libhal-util REQUIRED CONFIG)
 
 # Set the path to the linekr scripts to the source directory or (..)
 set(LINKER_SCRIPT_PATHS ${CMAKE_SOURCE_DIR}/)
@@ -52,7 +53,8 @@ foreach(target IN LISTS TARGETS)
             -Wl,--print-memory-usage)
         target_link_libraries(${current_project} PRIVATE
             liblpc40xx::liblpc40xx
-            libesp8266::libesp8266)
+            libesp8266::libesp8266
+            libhal-util::libhal-util)
         arm_post_build(${current_project})
     endforeach()
 endforeach()

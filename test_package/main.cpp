@@ -5,8 +5,8 @@
 
 #include <libesp8266/at/socket.hpp>
 #include <libesp8266/at/wlan_client.hpp>
-#include <libhal/serial/util.hpp>
-#include <libhal/steady_clock/util.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal-util/steady_clock.hpp>
 #include <libhal/timeout.hpp>
 
 #include "util.test.hpp"

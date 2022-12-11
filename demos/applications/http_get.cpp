@@ -2,8 +2,8 @@
 #include <libesp8266/at/wlan_client.hpp>
 #include <libesp8266/http_response.hpp>
 #include <libesp8266/util.hpp>
-#include <libhal/serial/util.hpp>
-#include <libhal/steady_clock/util.hpp>
+#include <libhal-util/serial.hpp>
+#include <libhal-util/steady_clock.hpp>
 #include <libhal/timeout.hpp>
 
 #include "../hardware_map.hpp"
