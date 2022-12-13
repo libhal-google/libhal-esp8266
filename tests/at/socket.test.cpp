@@ -5,7 +5,7 @@
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::at {
-boost::ut::suite socket_test = []() {
+void socket_test() {
   using namespace boost::ut;
 
   "socket::create() oneshot"_test = []() {

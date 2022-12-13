@@ -5,7 +5,7 @@
 #include <boost/ut.hpp>
 
 namespace hal::esp8266 {
-boost::ut::suite http_response_test = []() {
+void http_response_test() {
   using namespace boost::ut;
   using namespace std::literals;
 
