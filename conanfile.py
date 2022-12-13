@@ -11,7 +11,7 @@ required_conan_version = ">=1.50.0"
 
 class Libesp8266Conan(ConanFile):
     name = "libesp8266"
-    version = "0.0.6"
+    version = "0.0.7"
     license = "Apache-2.0"
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://github.com/libhal/libesp8266"
@@ -37,7 +37,7 @@ class Libesp8266Conan(ConanFile):
         }
 
     def requirements(self):
-        self.requires("libhal/0.2.0@")
+        self.requires("libhal/0.2.2@")
         self.requires("libhal-util/0.2.4@")
 
     def validate(self):

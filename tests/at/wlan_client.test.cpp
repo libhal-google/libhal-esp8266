@@ -5,7 +5,7 @@
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::at {
-boost::ut::suite wlan_client_test = []() {
+void wlan_client_test() {
   using namespace boost::ut;
 
   "wlan_client()"_test = []() {
