@@ -2,6 +2,8 @@
 
 #include "helpers.hpp"
 
+#include <libhal/alias.hpp>
+
 #include <boost/ut.hpp>
 
 namespace hal::esp8266 {
@@ -18,7 +20,7 @@ void http_response_test()
   private:
     hal::result<write_t> driver_write(
       std::span<const hal::byte> p_data,
-      [[maybe_unused]] std::function<hal::timeout_function> p_timeout)
+      [[maybe_unused]] hal::function_ref<hal::timeout_function> p_timeout)
     {
       printf("%.*s", static_cast<int>(p_data.size()), p_data.data());
       return write_t{ p_data };
