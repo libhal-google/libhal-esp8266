@@ -25,13 +25,12 @@ public:
   {
   }
 
-  hal::status driver_configure(const settings& p_settings) noexcept override
+  hal::status driver_configure(const settings& p_settings) override
   {
     return m_primary->configure(p_settings);
   }
 
-  hal::result<write_t> driver_write(
-    std::span<const hal::byte> p_data) noexcept override
+  hal::result<write_t> driver_write(std::span<const hal::byte> p_data) override
   {
     HAL_CHECK(hal::write(*m_mirror, "WRITE:["));
     HAL_CHECK(m_mirror->write(p_data));
@@ -39,7 +38,7 @@ public:
     return m_primary->write(p_data);
   }
 
-  hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept override
+  hal::result<read_t> driver_read(std::span<hal::byte> p_data) override
   {
     auto result = m_primary->read(p_data);
 
@@ -50,7 +49,7 @@ public:
     return result;
   }
 
-  hal::status driver_flush() noexcept override
+  hal::status driver_flush() override
   {
     return m_primary->flush();
   }
