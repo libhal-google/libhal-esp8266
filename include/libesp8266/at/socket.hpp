@@ -157,7 +157,7 @@ private:
 
   hal::result<write_t> driver_write(
     std::span<const hal::byte> p_data,
-    std::function<hal::timeout_function> p_timeout) noexcept override
+    std::function<hal::timeout_function> p_timeout) override
   {
     using namespace std::literals;
     if (p_data.size() > maximum_transmit_packet_size) {
@@ -176,7 +176,7 @@ private:
     return write_t{ .data = p_data };
   }
 
-  hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept override
+  hal::result<read_t> driver_read(std::span<hal::byte> p_data) override
   {
     // Format of a TCP packet for the ESP8266 AT commands:
     //

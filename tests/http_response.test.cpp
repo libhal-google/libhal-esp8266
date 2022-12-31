@@ -5,7 +5,8 @@
 #include <boost/ut.hpp>
 
 namespace hal::esp8266 {
-void http_response_test() {
+void http_response_test()
+{
   using namespace boost::ut;
   using namespace std::literals;
 
@@ -17,13 +18,13 @@ void http_response_test() {
   private:
     hal::result<write_t> driver_write(
       std::span<const hal::byte> p_data,
-      [[maybe_unused]] std::function<hal::timeout_function> p_timeout) noexcept
+      [[maybe_unused]] std::function<hal::timeout_function> p_timeout)
     {
       printf("%.*s", static_cast<int>(p_data.size()), p_data.data());
       return write_t{ p_data };
     }
 
-    hal::result<read_t> driver_read(std::span<hal::byte> p_data) noexcept
+    hal::result<read_t> driver_read(std::span<hal::byte> p_data)
     {
       auto min = std::min(p_data.size(), size_t(5));
       return read_t{ m_stream_out(p_data.first(min)).data };
