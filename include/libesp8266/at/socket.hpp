@@ -9,6 +9,7 @@
 #include <libhal-util/serial_coroutines.hpp>
 #include <libhal-util/steady_clock.hpp>
 #include <libhal-util/streams.hpp>
+#include <libhal/alias.hpp>
 #include <libhal/serial.hpp>
 #include <libhal/socket.hpp>
 #include <libhal/steady_clock.hpp>
@@ -157,7 +158,7 @@ private:
 
   hal::result<write_t> driver_write(
     std::span<const hal::byte> p_data,
-    std::function<hal::timeout_function> p_timeout) override
+    hal::function_ref<hal::timeout_function> p_timeout) override
   {
     using namespace std::literals;
     if (p_data.size() > maximum_transmit_packet_size) {
