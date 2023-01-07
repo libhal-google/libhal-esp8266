@@ -9,7 +9,7 @@
 #include <libhal-util/serial_coroutines.hpp>
 #include <libhal-util/steady_clock.hpp>
 #include <libhal-util/streams.hpp>
-#include <libhal/alias.hpp>
+#include <libhal/functional.hpp>
 #include <libhal/serial.hpp>
 #include <libhal/socket.hpp>
 #include <libhal/steady_clock.hpp>

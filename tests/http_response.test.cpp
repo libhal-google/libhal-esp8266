@@ -2,7 +2,7 @@
 
 #include "helpers.hpp"
 
-#include <libhal/alias.hpp>
+#include <libhal/functional.hpp>
 
 #include <boost/ut.hpp>
 
