@@ -1,6 +1,6 @@
 #pragma once
 
-#include <libhal/alias.hpp>
+#include <libhal/functional.hpp>
 #include <libhal/serial.hpp>
 #include <libhal/steady_clock.hpp>
 
@@ -10,7 +10,7 @@ struct hardware_map
   hal::serial* debug;
   hal::serial* esp;
   hal::steady_clock* counter;
-  hal::function_ref<void()> reset;
+  hal::callback<void()> reset;
 };
 }  // namespace hal::esp8266
 

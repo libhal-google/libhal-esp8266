@@ -1,7 +1,7 @@
 [requires]
-liblpc40xx/0.2.7
-libesp8266/[x]
-libhal-util/0.2.4
+liblpc40xx/0.3.2
+libesp8266/0.3.2
+libhal-util/0.3.3
 
 [generators]
 CMakeToolchain
