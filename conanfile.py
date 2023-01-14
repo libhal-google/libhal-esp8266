@@ -9,12 +9,12 @@ import os
 required_conan_version = ">=1.50.0"
 
 
-class Libesp8266Conan(ConanFile):
-    name = "libesp8266"
-    version = "0.3.2"
+class LibhalEsp8266Conan(ConanFile):
+    name = "libhal-esp8266"
+    version = "0.3.3"
     license = "Apache-2.0"
     url = "https://github.com/conan-io/conan-center-index"
-    homepage = "https://github.com/libhal/libesp8266"
+    homepage = "https://github.com/libhal/libhal-esp8266"
     description = ("A collection of drivers for the esp8266")
     topics = ("esp8266", "wifi", "tcp/ip", "mcu")
     settings = "compiler"
@@ -74,3 +74,4 @@ class Libesp8266Conan(ConanFile):
         self.cpp_info.frameworkdirs = []
         self.cpp_info.libdirs = []
         self.cpp_info.resdirs = []
+        self.cpp_info.set_property("cmake_target_name", "libhal::esp8266")

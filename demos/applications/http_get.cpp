@@ -1,7 +1,7 @@
-#include <libesp8266/at/socket.hpp>
-#include <libesp8266/at/wlan_client.hpp>
-#include <libesp8266/http_response.hpp>
-#include <libesp8266/util.hpp>
+#include <libhal-esp8266/at/socket.hpp>
+#include <libhal-esp8266/at/wlan_client.hpp>
+#include <libhal-esp8266/http_response.hpp>
+#include <libhal-esp8266/util.hpp>
 #include <libhal-util/serial.hpp>
 #include <libhal-util/steady_clock.hpp>
 #include <libhal/timeout.hpp>
