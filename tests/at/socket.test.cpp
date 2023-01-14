@@ -1,11 +1,12 @@
-#include <libesp8266/at/socket.hpp>
+#include <libhal-esp8266/at/socket.hpp>
 
 #include "../helpers.hpp"
 
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::at {
-void socket_test() {
+void socket_test()
+{
   using namespace boost::ut;
 
   "socket::create() oneshot"_test = []() {

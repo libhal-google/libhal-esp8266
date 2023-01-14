@@ -13,6 +13,6 @@ jobs:
   lint:
     uses: libhal/libhal/.github/workflows/checks.yml@main
     with:
-      library: libesp8266
+      library: libhal-esp8266
       coverage: true
     secrets: inherit

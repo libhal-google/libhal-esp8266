@@ -4,6 +4,6 @@
         "conan": {}
     },
     "include": [
-        "/Users/kammce/git/libhal/libesp8266/test_package/build/generators/CMakePresets.json"
+        "/Users/kammce/git/libhal/libhal-esp8266/test_package/build/generators/CMakePresets.json"
     ]
 }

@@ -1,11 +1,12 @@
-#include <libesp8266/util.hpp>
+#include <libhal-esp8266/util.hpp>
 
 #include "helpers.hpp"
 
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::http {
-void util_test() {
+void util_test()
+{
   using namespace boost::ut;
   using namespace std::literals;
 

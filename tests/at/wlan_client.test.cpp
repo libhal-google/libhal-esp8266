@@ -1,11 +1,12 @@
-#include <libesp8266/at/wlan_client.hpp>
+#include <libhal-esp8266/at/wlan_client.hpp>
 
 #include "../helpers.hpp"
 
 #include <boost/ut.hpp>
 
 namespace hal::esp8266::at {
-void wlan_client_test() {
+void wlan_client_test()
+{
   using namespace boost::ut;
 
   "wlan_client()"_test = []() {

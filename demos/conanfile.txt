@@ -1,6 +1,6 @@
 [requires]
-liblpc40xx/0.3.2
-libesp8266/0.3.2
+libhal-lpc40xx/0.3.3
+libhal-esp8266/0.3.2
 libhal-util/0.3.3
 
 [generators]
