@@ -25,7 +25,7 @@ foreach(target IN LISTS TARGETS)
         target_link_libraries(${current_project} PRIVATE
             libhal::${target}
             libhal::esp8266
-            libhal-util::libhal-util)
+            libhal::util)
         arm_post_build(${current_project})
     endforeach()
 endforeach()
