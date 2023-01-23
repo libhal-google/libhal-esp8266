@@ -16,12 +16,9 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   auto& counter = *p_map.counter;
   auto& esp = *p_map.esp;
-  auto& debug = *p_map.debug;
+  auto& console = *p_map.debug;
 
-  HAL_CHECK(hal::write(debug, "ESP8266 WiFi Client Application Starting...\n"));
-
-  // 2kB buffer to read data into
-  std::array<hal::byte, 2096> buffer{};
+  hal::print(console, "ESP8266 WiFi Client Application Starting...\n");
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
@@ -30,10 +27,10 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Check if the wlan_client creation was successful, if not return error and
   // reset device
   if (!wlan_client_result) {
-    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n"));
+    hal::print(console, "Failed to create wifi client!\n\n");
     return wlan_client_result.error();
   } else {
-    HAL_CHECK(hal::write(debug, "WiFi Connection made!!\n"));
+    hal::print(console, "WiFi Connection made!!\n\n");
   }
 
   // Move wlan client out of the result object
@@ -52,14 +49,17 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Check if socket creation was successful, if not return error and reset
   // device
   if (!socket_result) {
-    HAL_CHECK(hal::write(debug, "Socket couldn't be established\n"));
+    hal::print(console, "Socket couldn't be established\n\n");
     return socket_result.error();
   } else {
-    HAL_CHECK(hal::write(debug, "Socket connection has been established!\n"));
+    hal::print(console, "Socket connection has been established!\n\n");
   }
 
   // Move socket out of the result object
   auto socket = std::move(socket_result.value());
+
+  // 2kB buffer to read data into
+  std::array<hal::byte, 2096> buffer{};
 
   while (true) {
     buffer.fill('.');
@@ -75,14 +75,17 @@ hal::status application(hal::esp8266::hardware_map& p_map)
                                              .path = "/",
                                              .port = "80" }));
 
+    hal::print(console, "GET Request Creating... Waiting for results\n");
+
     // Wait until GET request response is finished
     auto state = HAL_CHECK(hal::try_until(get_request, time_limit));
 
     // If the state came back as finished, print the response to the user
     if (state == hal::work_state::finished) {
-      HAL_CHECK(print_http_response_info(debug, get_request.response()));
+      hal::print(console, "GET Request finished, printing results:");
+      HAL_CHECK(print_http_response_info(console, get_request.response()));
     } else {
-      HAL_CHECK(hal::write(debug, "GET Request failed, attempting again!\n"));
+      hal::print(console, "GET Request failed, attempting again!\n");
     }
 
     // Wait 500ms before making another GET request

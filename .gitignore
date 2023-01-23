@@ -40,3 +40,4 @@ archives/
 
 # Artifacts
 build/
+CMakeUserPresets.json

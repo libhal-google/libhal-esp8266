@@ -2,6 +2,7 @@
 
 #include <string_view>
 
+#include <libhal-esp8266/util.hpp>
 #include <libhal-util/serial.hpp>
 
 /**
@@ -31,9 +32,9 @@ public:
 
   hal::result<write_t> driver_write(std::span<const hal::byte> p_data) override
   {
-    HAL_CHECK(hal::write(*m_mirror, "WRITE:["));
+    hal::print(*m_mirror, "WRITE:[");
     HAL_CHECK(m_mirror->write(p_data));
-    HAL_CHECK(hal::write(*m_mirror, "]\n"));
+    hal::print(*m_mirror, "]\n");
     return m_primary->write(p_data);
   }
 
@@ -64,52 +65,47 @@ inline std::string_view to_string_view(std::span<const hal::byte> p_span)
                           p_span.size());
 }
 
-namespace hal {
-inline status write(serial& p_serial, std::integral auto p_integer)
-{
-  auto integer_string = HAL_CHECK(esp8266::integer_string::create(p_integer));
-  return write(p_serial, integer_string.str());
-}
-}  // namespace hal
+// namespace hal {
+// inline void write(serial& p_serial, std::integral auto p_integer)
+// {
+//   auto integer_string = esp8266::integer_string::create(p_integer).value();
+//   (void)write(p_serial, integer_string.str());
+// }
+// }  // namespace hal
 
 inline hal::status print_http_response_info(hal::serial& p_serial,
                                             std::string_view p_http_response)
 {
-
   // Print out the results from the TCP socket
-  HAL_CHECK(
-    hal::write(p_serial, "=============== Full Response! ==========\n"));
-  HAL_CHECK(hal::write(p_serial, p_http_response));
-  HAL_CHECK(hal::write(p_serial, "\n\n"));
+  hal::print(p_serial, "=============== Full Response! ==========\n");
+  hal::print(p_serial, p_http_response);
+  hal::print(p_serial, "\n\n");
 
   // Print out the parsed HTTP meta data from TCP socket string
-  HAL_CHECK(hal::write(p_serial, "================ Meta Data! ===========\n"));
+  hal::print(p_serial, "================ Meta Data! ===========\n");
   // Print HTTP Status Code
-  HAL_CHECK(hal::write(p_serial, "HTTP Status: "));
-  HAL_CHECK(hal::write(p_serial, hal::esp8266::http_status(p_http_response)));
-  HAL_CHECK(hal::write(p_serial, "\n"));
+  hal::print<64>(
+    p_serial, "HTTP Status: %zu\n", hal::esp8266::http_status(p_http_response));
   // Print out the content type
-  HAL_CHECK(hal::write(p_serial, "Content-Type: "));
-  HAL_CHECK(hal::write(
-    p_serial, hal::esp8266::http_header("Content-Type", p_http_response)));
-  HAL_CHECK(hal::write(p_serial, "\n"));
+  hal::print(p_serial, "Content-Type: ");
+  hal::print(p_serial,
+             hal::esp8266::http_header("Content-Type", p_http_response));
+  hal::print(p_serial, "\n");
   // Print out the Date header flag
-  HAL_CHECK(hal::write(p_serial, "Date: "));
-  HAL_CHECK(
-    hal::write(p_serial, hal::esp8266::http_header("Date", p_http_response)));
-  HAL_CHECK(hal::write(p_serial, "\n"));
+  hal::print(p_serial, "Date: ");
+  hal::print(p_serial, hal::esp8266::http_header("Date", p_http_response));
+  hal::print(p_serial, "\n");
   // Print out the length of the body of the response
-  HAL_CHECK(hal::write(p_serial, "Content-Length: "));
-  HAL_CHECK(hal::write(
-    p_serial, hal::esp8266::http_header("Content-Length", p_http_response)));
-  HAL_CHECK(hal::write(p_serial, "\n"));
+  hal::print(p_serial, "Content-Length: ");
+  hal::print(p_serial,
+             hal::esp8266::http_header("Content-Length", p_http_response));
+  hal::print(p_serial, "\n");
 
   // Print out the body of the response
-  HAL_CHECK(hal::write(p_serial, "================ Body! ===========\n"));
-  HAL_CHECK(hal::write(p_serial, hal::esp8266::http_body(p_http_response)));
-  HAL_CHECK(hal::write(p_serial, "\n"));
-  HAL_CHECK(
-    hal::write(p_serial, "=================== /end ================\n"));
+  hal::print(p_serial, "================ Body! ===========\n");
+  hal::print(p_serial, hal::esp8266::http_body(p_http_response));
+  hal::print(p_serial, "\n");
+  hal::print(p_serial, "=================== /end ================\n");
 
   return hal::success();
 }

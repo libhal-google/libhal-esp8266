@@ -13,38 +13,38 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   using namespace std::chrono_literals;
   using namespace hal::literals;
 
-  auto& counter = *p_map.counter;
+  auto& clock = *p_map.counter;
   auto& esp = *p_map.esp;
-  auto& debug = *p_map.debug;
+  auto& console = *p_map.debug;
 
-  HAL_CHECK(hal::write(debug, "ESP8266 WiFi Client Application Starting...\n"));
+  hal::print(console, "ESP8266 WiFi Client Application Starting...\n");
 
   // 8kB buffer to read data into
   std::array<hal::byte, 8192> buffer{};
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
-    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 10s)));
+    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(clock, 10s)));
 
   // Return error and restart
   if (!wlan_client_result) {
-    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n"));
+    hal::print(console, "Failed to create wifi client!\n");
     return wlan_client_result.error();
   }
 
   // Create a tcp_socket and connect it to example.com port 80
   auto wlan_client = wlan_client_result.value();
-  auto tcp_socket_result = hal::esp8266::at::socket::create(
-    wlan_client,
-    HAL_CHECK(hal::create_timeout(counter, 1s)),
-    {
-      .type = hal::socket::type::tcp,
-      .domain = "example.com",
-      .port = "80",
-    });
+  auto tcp_socket_result =
+    hal::esp8266::at::socket::create(wlan_client,
+                                     HAL_CHECK(hal::create_timeout(clock, 5s)),
+                                     {
+                                       .type = hal::socket::type::tcp,
+                                       .domain = "example.com",
+                                       .port = "80",
+                                     });
 
   if (!tcp_socket_result) {
-    HAL_CHECK(hal::write(debug, "TCP Socket couldn't be established\n"));
+    hal::print(console, "TCP Socket couldn't be established\n\n");
     return tcp_socket_result.error();
   }
 
@@ -60,19 +60,19 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     buffer.fill('.');
 
     // Send out HTTP GET request
-    HAL_CHECK(hal::write(debug, "Sending:\n\n"));
-    HAL_CHECK(hal::write(debug, get_request));
-    HAL_CHECK(hal::write(debug, "\n\n"));
+    hal::print(console, "Sending:\n\n");
+    hal::print(console, get_request);
+    hal::print(console, "\n\n");
     HAL_CHECK(tcp_socket.write(hal::as_bytes(get_request),
-                               HAL_CHECK(hal::create_timeout(counter, 500ms))));
+                               HAL_CHECK(hal::create_timeout(clock, 500ms))));
 
     // Wait 1 second before reading response back
-    HAL_CHECK(hal::delay(counter, 1000ms));
+    HAL_CHECK(hal::delay(clock, 1000ms));
 
     // Read response back from serial port
     auto received = HAL_CHECK(tcp_socket.read(buffer)).data;
 
-    HAL_CHECK(print_http_response_info(debug, to_string_view(received)));
+    print_http_response_info(console, to_string_view(received));
   }
 
   return hal::success();

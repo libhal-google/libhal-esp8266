@@ -37,8 +37,8 @@ class LibhalEsp8266Conan(ConanFile):
         }
 
     def requirements(self):
-        self.requires("libhal/0.3.2@")
-        self.requires("libhal-util/0.3.3@")
+        self.requires("libhal/0.3.3@")
+        self.requires("libhal-util/0.3.6@")
 
     def validate(self):
         if self.settings.get_safe("compiler.cppstd"):
