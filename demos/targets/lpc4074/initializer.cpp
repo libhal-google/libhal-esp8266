@@ -13,8 +13,6 @@ hal::result<hal::esp8266::hardware_map> initialize_target()
   using namespace hal::literals;
   hal::cortex_m::initialize_data_section();
 
-  hal::cortex_m::system_control::initialize_floating_point_unit();
-
   // Set the MCU to the maximum clock speed
   HAL_CHECK(hal::lpc40xx::clock::maximum(10.0_MHz));
 
