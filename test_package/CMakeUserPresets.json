@@ -1,9 +1,0 @@
-{
-    "version": 4,
-    "vendor": {
-        "conan": {}
-    },
-    "include": [
-        "/Users/kammce/git/libhal/libhal-esp8266/test_package/build/generators/CMakePresets.json"
-    ]
-}

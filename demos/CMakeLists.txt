@@ -4,7 +4,6 @@ project(demos VERSION 0.0.1 LANGUAGES CXX)
 
 find_package(libhal-lpc40xx REQUIRED CONFIG)
 find_package(libhal-esp8266 REQUIRED CONFIG)
-find_package(libhal-util REQUIRED CONFIG)
 
 set(DEMOS wlan_client http_get)
 set(TARGETS lpc4078 lpc4074)
@@ -24,8 +23,7 @@ foreach(target IN LISTS TARGETS)
         target_compile_features(${current_project} PRIVATE cxx_std_20)
         target_link_libraries(${current_project} PRIVATE
             libhal::${target}
-            libhal::esp8266
-            libhal::util)
+            libhal::esp8266)
         arm_post_build(${current_project})
     endforeach()
 endforeach()
