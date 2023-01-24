@@ -24,7 +24,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
-    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 10s)));
+    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 20s)));
 
   // Return error and restart
   if (!wlan_client_result) {
@@ -36,7 +36,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   auto wlan_client = wlan_client_result.value();
   auto tcp_socket_result = hal::esp8266::at::socket::create(
     wlan_client,
-    HAL_CHECK(hal::create_timeout(counter, 1s)),
+    HAL_CHECK(hal::create_timeout(counter, 10s)),
     {
       .type = hal::socket::type::tcp,
       .domain = "example.com",
