@@ -57,3 +57,11 @@ target_link_options(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE
   Boost::ut
   libhal::esp8266)
+
+add_custom_command(TARGET ${PROJECT_NAME}
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND}
+  -P ${CMAKE_SOURCE_DIR}/remove_gcda.cmake
+  COMMENT "Deleting Previous Coverage Files..."
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
