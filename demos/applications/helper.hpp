@@ -48,7 +48,7 @@ public:
     return result;
   }
 
-  hal::status driver_flush() override
+  hal::result<hal::serial::flush_t> driver_flush() override
   {
     return m_primary->flush();
   }

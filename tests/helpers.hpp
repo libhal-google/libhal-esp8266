@@ -68,9 +68,9 @@ struct mock_serial : public hal::serial
     return m_stream_out(p_data);
   }
 
-  hal::status driver_flush() override
+  result<flush_t> driver_flush() override
   {
-    return hal::success();
+    return flush_t{};
   }
 
   size_t rotation = 0;
