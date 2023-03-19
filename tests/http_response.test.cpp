@@ -2,6 +2,8 @@
 
 #include "helpers.hpp"
 
+#include <string>
+
 #include <libhal/functional.hpp>
 
 #include <boost/ut.hpp>
@@ -16,12 +18,15 @@ void http_response_test()
   {
   public:
     stream_out m_stream_out;
+    std::string m_request;
 
   private:
     hal::result<write_t> driver_write(
       std::span<const hal::byte> p_data,
       [[maybe_unused]] hal::function_ref<hal::timeout_function> p_timeout)
     {
+      m_request.append(reinterpret_cast<const char*>(p_data.data()),
+                       p_data.size());
       printf("%.*s", static_cast<int>(p_data.size()), p_data.data());
       return write_t{ p_data };
     }
@@ -53,17 +58,23 @@ void http_response_test()
       "\r\n"
       "0123456789"sv;
     // 386 UL
+
+    constexpr std::string_view expected_response =
+      "GET / HTTP/1.1\r\n"
+      "Host: example.com:80\r\n"
+      "Connection: keep-alive\r\n\r\n";
     std::array<hal::byte, 1024> test_buffer;
     fake_socket test_socket;
     test_socket.m_stream_out = stream_out(example_response);
-    [[maybe_unused]] auto get_request =
-      http::create(test_socket,
-                   never_timeout(),
-                   { .response_buffer = test_buffer,
-                     .domain = "example.com",
-                     .path = "/",
-                     .port = "80" })
-        .value();
+    auto get_request = http::create(test_socket,
+                                    never_timeout(),
+                                    {
+                                      .response_buffer = test_buffer,
+                                      .domain = "example.com",
+                                      .path = "/",
+                                      .port = "80",
+                                    })
+                         .value();
 
     std::array<work_state, 80> work_states{};
 
@@ -73,6 +84,8 @@ void http_response_test()
     }
 
     // Verify
+    expect(that % expected_response == test_socket.m_request);
+
     for (size_t i = 0; i < 77; i++) {
       expect(that % work_states[i] == work_state::in_progress);
     }

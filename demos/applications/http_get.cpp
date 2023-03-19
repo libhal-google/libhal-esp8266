@@ -20,8 +20,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   HAL_CHECK(hal::write(debug, "ESP8266 WiFi Client Application Starting...\n"));
 
-  // 2kB buffer to read data into
-  std::array<hal::byte, 2096> buffer{};
+  // serial_mirror esp(real_esp, debug);
 
   // Connect to WiFi AP
   auto wlan_client_result = hal::esp8266::at::wlan_client::create(
@@ -30,7 +29,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Check if the wlan_client creation was successful, if not return error and
   // reset device
   if (!wlan_client_result) {
-    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n"));
+    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n\n"));
     return wlan_client_result.error();
   } else {
     HAL_CHECK(hal::write(debug, "WiFi Connection made!!\n"));
@@ -52,7 +51,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Check if socket creation was successful, if not return error and reset
   // device
   if (!socket_result) {
-    HAL_CHECK(hal::write(debug, "Socket couldn't be established\n"));
+    HAL_CHECK(hal::write(debug, "Socket couldn't be established\n\n"));
     return socket_result.error();
   } else {
     HAL_CHECK(hal::write(debug, "Socket connection has been established!\n"));
@@ -62,30 +61,57 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   auto socket = std::move(socket_result.value());
 
   while (true) {
-    buffer.fill('.');
-
-    auto time_limit = HAL_CHECK(hal::create_timeout(counter, 5000ms));
+    HAL_CHECK(hal::write(debug, "Starting GET request...\n"));
 
     // Create http get request to example.com/ on port 80
-    auto get_request =
-      HAL_CHECK(hal::esp8266::http::create(socket,
-                                           time_limit,
-                                           { .response_buffer = buffer,
-                                             .domain = "example.com",
-                                             .path = "/",
-                                             .port = "80" }));
+    hal::attempt_all(
+      [&socket, &counter, &debug]() -> hal::status {
+        // 2kB buffer to read data into
+        std::array<hal::byte, 2096> buffer{};
+        buffer.fill('.');
 
-    // Wait until GET request response is finished
-    auto state = HAL_CHECK(hal::try_until(get_request, time_limit));
+        auto time_limit = HAL_CHECK(hal::create_timeout(counter, 20000ms));
+        auto get_request =
+          HAL_CHECK(hal::esp8266::http::create(socket,
+                                               time_limit,
+                                               { .response_buffer = buffer,
+                                                 .domain = "example.com",
+                                                 .path = "/",
+                                                 .port = "80" }));
 
-    // If the state came back as finished, print the response to the user
-    if (state == hal::work_state::finished) {
-      HAL_CHECK(print_http_response_info(debug, get_request.response()));
-    } else {
-      HAL_CHECK(hal::write(debug, "GET Request failed, attempting again!\n"));
-    }
+        // Wait until GET request response is finished
+        auto state = HAL_CHECK(hal::try_until(get_request, time_limit));
 
-    // Wait 500ms before making another GET request
+        // If the state came back as finished, print the response to the user
+        if (state == hal::work_state::finished) {
+          HAL_CHECK(print_http_response_info(debug, get_request.response()));
+        } else {
+          HAL_CHECK(
+            hal::write(debug, "GET Request failed, attempting again!\n"));
+        }
+        return hal::success();
+      },
+      [&debug](hal::match<std::errc, std::errc::invalid_argument>) {
+        (void)hal::write(debug, "std::errc::invalid_argument\n");
+      },
+      [&debug](hal::match<std::errc, std::errc::not_enough_memory>) {
+        (void)hal::write(debug, "std::errc::not_enough_memory\n");
+      },
+      [&debug](hal::match<std::errc, std::errc::destination_address_required>) {
+        (void)hal::write(debug, "std::errc::destination_address_required\n");
+      },
+      [&debug](hal::match<std::errc, std::errc::file_too_large>) {
+        (void)hal::write(debug, "std::errc::file_too_large\n");
+      },
+      [&debug](hal::match<std::errc, std::errc::file_too_large>) {
+        (void)hal::write(debug, "std::errc::file_too_large\n");
+      },
+      [&debug](hal::match<std::errc, std::errc::timed_out>) {
+        (void)hal::write(debug, "std::errc::timed_out\n");
+      },
+      [&debug]() { (void)hal::write(debug, "UNKNOWN!\n"); });
+
+    // Wait 100ms before making another GET request
     HAL_CHECK(hal::delay(counter, 100ms));
   }
 

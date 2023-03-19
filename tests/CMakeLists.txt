@@ -26,7 +26,9 @@ else()
 endif()
 
 find_package(ut REQUIRED CONFIG)
-find_package(libhal-esp8266 REQUIRED CONFIG)
+find_package(libhal REQUIRED CONFIG)
+find_package(libhal-util REQUIRED CONFIG)
+find_package(etl REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME}
   at/wlan_client.test.cpp
@@ -54,7 +56,11 @@ target_link_options(${PROJECT_NAME} PRIVATE
   -fprofile-arcs
   -ftest-coverage
   ${ASAN_FLAG})
-target_link_libraries(${PROJECT_NAME} PRIVATE boost-ext-ut::ut libhal::libhal libhal::util)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+  boost-ext-ut::ut
+  libhal::libhal
+  libhal::util
+  etl)
 
 add_custom_command(TARGET ${PROJECT_NAME}
   POST_BUILD

@@ -161,6 +161,7 @@ private:
     hal::function_ref<hal::timeout_function> p_timeout) override
   {
     using namespace std::literals;
+
     if (p_data.size() > maximum_transmit_packet_size) {
       return new_error(std::errc::file_too_large);
     }
