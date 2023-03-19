@@ -11,7 +11,7 @@ required_conan_version = ">=1.50.0"
 
 class LibhalEsp8266Conan(ConanFile):
     name = "libhal-esp8266"
-    version = "1.0.0"
+    version = "1.0.1"
     license = "Apache-2.0"
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://github.com/libhal/libhal-esp8266"
@@ -55,18 +55,36 @@ class LibhalEsp8266Conan(ConanFile):
     def requirements(self):
         self.requires("libhal/[^1.0.0]")
         self.requires("libhal-util/[^1.0.0]")
+        self.requires("etl/20.35.11")
         self.test_requires("boost-ext-ut/1.1.9")
 
     def layout(self):
         cmake_layout(self)
 
+    def build(self):
+        if not self.conf.get("tools.build:skip_test", default=False):
+            cmake = CMake(self)
+            if self.settings.os == "Windows":
+                cmake.configure(build_script_folder="tests")
+            else:
+                cmake.configure(build_script_folder="tests",
+                                variables={"ENABLE_ASAN": True})
+            cmake.build()
+            self.run(os.path.join(self.cpp.build.bindir, "unit_test"))
+
     def package(self):
-        copy(self, "LICENSE", dst=os.path.join(
-            self.package_folder, "licenses"), src=self.source_folder)
-        copy(self, "*.h", dst=os.path.join(self.package_folder, "include"),
+        copy(self,
+             "LICENSE",
+             dst=os.path.join(self.package_folder, "licenses"),
+             src=self.source_folder)
+        copy(self,
+             "*.h",
+             dst=os.path.join(self.package_folder, "include"),
              src=os.path.join(self.source_folder, "include"))
-        copy(self, "*.hpp", dst=os.path.join(self.package_folder,
-             "include"), src=os.path.join(self.source_folder, "include"))
+        copy(self,
+             "*.hpp",
+             dst=os.path.join(self.package_folder, "include"),
+             src=os.path.join(self.source_folder, "include"))
 
     def package_info(self):
         self.cpp_info.bindirs = []
@@ -74,5 +92,6 @@ class LibhalEsp8266Conan(ConanFile):
         self.cpp_info.libdirs = []
         self.cpp_info.resdirs = []
         self.cpp_info.set_property("cmake_target_name", "libhal::esp8266")
+
     def package_id(self):
         self.info.clear()

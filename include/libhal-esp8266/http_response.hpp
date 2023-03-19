@@ -4,6 +4,7 @@
 #include <span>
 #include <string_view>
 
+#include <etl/string.h>
 #include <libhal-util/as_bytes.hpp>
 #include <libhal-util/streams.hpp>
 #include <libhal/units.hpp>
@@ -63,6 +64,12 @@ struct http_request
   std::span<hal::byte> payload{};
 };
 
+template<size_t StringSize>
+void append(etl::string<StringSize>& p_string, std::string_view p_view)
+{
+  p_string.append(p_view.data(), p_view.size());
+}
+
 class http
 {
 public:
@@ -71,50 +78,69 @@ public:
   /**
    * @brief
    *
+   * @tparam BufferSize - Stack size of the request string buffer. Must be big
+   * enough to hold the contents of the header, except the payload.
    * @param p_socket - network socket to make http request over
    * @param p_timeout - time limit to send HTTP request
    * @param p_request - specifies the HTTP request details
    * @return result<http> - A http response worker which, when called, will
    * stream packets of data from the socket into
-   * @throws std::errc::not_enough_memory - if response buffer is empty
+   * @throws std::errc::invalid_argument - if the response buffer has zero
+   * length
+   * @throws std::errc::not_enough_memory - if the http header could not fit
+   * within the BufferSize given.
    * @throws std::errc::destination_address_required - if domain address is
    * empty
    */
+  template<size_t BufferSize = 1024U>
   static result<http> create(hal::socket& p_socket,
                              timeout auto p_timeout,
                              http_request p_request)
   {
     using namespace std::literals;
+
+    etl::string<BufferSize> request_str;
+
     if (p_request.response_buffer.empty()) {
-      return hal::new_error(std::errc::not_enough_memory);
+      return hal::new_error(std::errc::invalid_argument);
     }
+
     if (p_request.domain.empty()) {
       return hal::new_error(std::errc::destination_address_required);
     }
 
-    // Send METHOD & HTTP version header line
-    HAL_CHECK(p_socket.write(as_bytes(to_string(p_request.method)), p_timeout));
-    HAL_CHECK(p_socket.write(as_bytes(p_request.path), p_timeout));
-    HAL_CHECK(p_socket.write(as_bytes(" HTTP/1.1\r\n"sv), p_timeout));
+    // Add METHOD & HTTP version header line
+    append(request_str, to_string(p_request.method));
+    append(request_str, " "sv);
+    append(request_str, p_request.path);
+    append(request_str, " HTTP/1.1\r\n"sv);
 
-    // Send HOST line
-    HAL_CHECK(p_socket.write(as_bytes("Host: "sv), p_timeout));
-    HAL_CHECK(p_socket.write(as_bytes(p_request.domain), p_timeout));
+    // Add HOST line
+    append(request_str, "Host: "sv);
+    append(request_str, p_request.domain);
     if (!p_request.port.empty()) {
-      HAL_CHECK(p_socket.write(as_bytes(":"sv), p_timeout));
-      HAL_CHECK(p_socket.write(as_bytes(p_request.port), p_timeout));
+      append(request_str, ":"sv);
+      append(request_str, p_request.port);
     }
-    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv), p_timeout));
+    append(request_str, "\r\n"sv);
 
-    // Send Connection line
-    HAL_CHECK(
-      p_socket.write(as_bytes(to_string(p_request.connection)), p_timeout));
+    // Add Connection line
+    append(request_str, to_string(p_request.connection));
 
-    // Send final newline
-    HAL_CHECK(p_socket.write(as_bytes("\r\n"sv), p_timeout));
+    // Add final newline
+    append(request_str, "\r\n"sv);
+
+    if (request_str.is_truncated()) {
+      return hal::new_error(std::errc::not_enough_memory);
+    }
+
+    // Send header
+    HAL_CHECK(p_socket.write(as_bytes(request_str), p_timeout));
 
     // Send payload
-    HAL_CHECK(p_socket.write(p_request.payload, p_timeout));
+    if (!p_request.payload.empty()) {
+      HAL_CHECK(p_socket.write(p_request.payload, p_timeout));
+    }
 
     return http(p_socket, p_request.response_buffer);
   }
