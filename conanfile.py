@@ -23,7 +23,7 @@ import os
 required_conan_version = ">=1.50.0"
 
 
-class LibhalEsp8266Conan(ConanFile):
+class libhal_esp8266_conan(ConanFile):
     name = "libhal-esp8266"
     version = "1.0.2"
     license = "Apache-2.0"
@@ -34,6 +34,7 @@ class LibhalEsp8266Conan(ConanFile):
     settings = "compiler", "build_type", "os", "arch"
     exports_sources = "include/*", "tests/*", "LICENSE"
     generators = "CMakeToolchain", "CMakeDeps"
+    package_type = "header-library"
     no_copy_source = True
 
     @property
@@ -69,7 +70,7 @@ class LibhalEsp8266Conan(ConanFile):
     def requirements(self):
         self.requires("libhal/[^1.0.0]")
         self.requires("libhal-util/[^1.0.0]")
-        self.requires("etl/20.35.11")
+        self.requires("etl/20.35.14")
         self.test_requires("boost-ext-ut/1.1.9")
 
     def layout(self):

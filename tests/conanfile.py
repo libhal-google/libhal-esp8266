@@ -24,7 +24,6 @@ class TestPackageConan(ConanFile):
 
     def requirements(self):
         self.requires(self.tested_reference_str)
-        self.requires("etl/20.35.11")
         self.test_requires("boost-ext-ut/1.1.9")
 
     def layout(self):
