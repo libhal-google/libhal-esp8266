@@ -21,8 +21,8 @@
 namespace hal::esp8266 {
 struct hardware_map
 {
-  hal::serial* debug;
-  hal::serial* esp;
+  hal::serial* console;
+  hal::serial* serial;
   hal::steady_clock* counter;
   hal::callback<void()> reset;
 };

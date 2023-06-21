@@ -29,7 +29,8 @@ to work. What worked was following this article
 [Installing the AT Firmware on an ESP-01S](https://www.sigmdel.ca/michel/ha/esp8266/ESP01_AT_Firmware_en.html).
 
 You'll probably want to pick up an esp8266 programmer to make programming the
-device easy. There are various ones out there. One suggestion is this one: [ESP8266 Adapter Programmer Downloader](https://www.amazon.com/Stemedu-ESP8266-Adapter-Programmer-Downloader/dp/B097SZMK2W).
+device easy. There are various ones out there. One suggestion is this one:
+[ESP8266 Adapter Programmer Downloader](https://www.amazon.com/dp/B097SZMK2W).
 
 The shortened steps to install version 2.2.0 on your esp-01 is as follows:
 

@@ -16,18 +16,20 @@ from conan import ConanFile
 from conan.tools.cmake import CMake, cmake_layout
 
 
-class esp8266_demos(ConanFile):
-    settings = "compiler", "build_type"
+class demos(ConanFile):
+    settings = "compiler", "build_type", "os", "arch"
     generators = "CMakeToolchain", "CMakeDeps", "VirtualBuildEnv"
+    options = {"platform": ["ANY"]}
+    default_options = {"platform": "unspecified"}
 
     def requirements(self):
-        self.requires("libhal-lpc40/[^1.0.0]")
-        self.requires("libhal-esp8266/1.0.2")
-        self.tool_requires("gnu-arm-embedded-toolchain/11.3.0")
-        self.tool_requires("cmake-arm-embedded/0.1.1")
+        self.requires("libhal-lpc40/2.0.0-alpha.3")
+        self.requires("libhal-esp8266/2.0.0-alpha.1")
+        self.build_requires("cmake-arm-embedded/1.0.0")
 
     def layout(self):
-        cmake_layout(self)
+        platform_directory = "build/" + str(self.options.platform)
+        cmake_layout(self, build_folder=platform_directory)
 
     def build(self):
         cmake = CMake(self)

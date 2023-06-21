@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "../hardware_map.hpp"
 
-#define BOOST_LEAF_EMBEDDED
-#define BOOST_LEAF_NO_THREADS
-
-#include <string_view>
-
-namespace hal::config {
-constexpr std::string_view platform = "stm32f103";
-}  // namespace hal::config
+hal::result<hal::esp8266::hardware_map> initialize_target()
+{
+  using namespace hal::literals;
+  return hal::new_error();
+}

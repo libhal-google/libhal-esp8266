@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <libhal-esp8266/at/socket.hpp>
-#include <libhal-esp8266/at/wlan_client.hpp>
-#include <libhal-esp8266/util.hpp>
+#include <libhal-esp8266/at.hpp>
 #include <libhal-util/serial.hpp>
 #include <libhal-util/steady_clock.hpp>
 #include <libhal/timeout.hpp>
@@ -28,42 +26,42 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   using namespace hal::literals;
 
   auto& counter = *p_map.counter;
-  auto& esp = *p_map.esp;
-  auto& debug = *p_map.debug;
+  auto& serial = *p_map.serial;
+  auto& console = *p_map.console;
 
-  HAL_CHECK(hal::write(debug, "ESP8266 WiFi Client Application Starting...\n"));
+  std::string_view ssid = "KAMMCE-PHONE";
+  std::string_view password = "roverteam";
+
+  hal::print(console, "ESP8266 WiFi Client Application Starting...\n");
 
   // 8kB buffer to read data into
   std::array<hal::byte, 8192> buffer{};
 
   // Connect to WiFi AP
-  auto wlan_client_result = hal::esp8266::at::wlan_client::create(
-    esp, "ssid", "password", HAL_CHECK(hal::create_timeout(counter, 20s)));
+  hal::print(console, "Create esp8266 object...\n");
+  auto timeout = HAL_CHECK(hal::create_timeout(counter, 20s));
+  auto esp8266 = HAL_CHECK(hal::esp8266::at::create(serial, timeout));
+  hal::print(console, "Esp8266 created! \n");
 
-  // Return error and restart
-  if (!wlan_client_result) {
-    HAL_CHECK(hal::write(debug, "Failed to create wifi client!\n"));
-    return wlan_client_result.error();
+  hal::print(console, "Connecting to AP...\n");
+  HAL_CHECK(esp8266.connect_to_ap(ssid, password, timeout));
+  hal::print(console, "AP Connected!\n");
+
+  bool is_connected = HAL_CHECK(esp8266.is_connected_to_ap(timeout));
+
+  if (is_connected) {
+    hal::print(console, "AP connection verified!\n");
   }
 
-  // Create a tcp_socket and connect it to example.com port 80
-  auto wlan_client = wlan_client_result.value();
-  auto tcp_socket_result = hal::esp8266::at::socket::create(
-    wlan_client,
-    HAL_CHECK(hal::create_timeout(counter, 10s)),
+  hal::print(console, "Connecting to server...\n");
+  HAL_CHECK(esp8266.connect_to_server(
     {
-      .type = hal::socket::type::tcp,
+      .type = hal::esp8266::at::socket_type::tcp,
       .domain = "example.com",
-      .port = "80",
-    });
-
-  if (!tcp_socket_result) {
-    HAL_CHECK(hal::write(debug, "TCP Socket couldn't be established\n"));
-    return tcp_socket_result.error();
-  }
-
-  // Move tcp_socket out of the result object
-  auto tcp_socket = std::move(tcp_socket_result.value());
+      .port = 80,
+    },
+    timeout));
+  hal::print(console, "Server connected!\n");
 
   while (true) {
     // Minimalist GET request to example.com domain
@@ -74,19 +72,20 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     buffer.fill('.');
 
     // Send out HTTP GET request
-    HAL_CHECK(hal::write(debug, "Sending:\n\n"));
-    HAL_CHECK(hal::write(debug, get_request));
-    HAL_CHECK(hal::write(debug, "\n\n"));
-    HAL_CHECK(tcp_socket.write(hal::as_bytes(get_request),
-                               HAL_CHECK(hal::create_timeout(counter, 500ms))));
+    hal::print(console, "\n\n================= SENDING! =================\n\n");
+    hal::print(console, get_request);
+
+    timeout = HAL_CHECK(hal::create_timeout(counter, 500ms));
+    HAL_CHECK(esp8266.server_write(hal::as_bytes(get_request), timeout));
 
     // Wait 1 second before reading response back
     HAL_CHECK(hal::delay(counter, 1000ms));
 
     // Read response back from serial port
-    auto received = HAL_CHECK(tcp_socket.read(buffer)).data;
+    auto received = HAL_CHECK(esp8266.server_read(buffer)).data;
 
-    HAL_CHECK(print_http_response_info(debug, to_string_view(received)));
+    hal::print(console, "\n>>>>>>>>>>>>>>>>> RESPONSE <<<<<<<<<<<<<<<<<\n\n");
+    hal::print(console, received);
   }
 
   return hal::success();

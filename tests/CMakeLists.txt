@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,13 +42,9 @@ endif()
 find_package(ut REQUIRED CONFIG)
 find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
-find_package(etl REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME}
-  at/wlan_client.test.cpp
-  at/socket.test.cpp
-  http_response.test.cpp
-  util.test.cpp
+  at.test.cpp
   main.test.cpp)
 
 target_include_directories(${PROJECT_NAME} PUBLIC . ../include)
@@ -74,12 +70,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   boost-ext-ut::ut
   libhal::libhal
   libhal::util
-  etl)
-
-add_custom_command(TARGET ${PROJECT_NAME}
-  POST_BUILD
-  COMMAND ${CMAKE_COMMAND}
-  -P ${CMAKE_SOURCE_DIR}/remove_gcda.cmake
-  COMMENT "Deleting Previous Coverage Files..."
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-)
+  libhal-esp8266)
