@@ -14,34 +14,27 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-if(NOT DEFINED CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE INTERNAL "Default to Debug Build")
-endif(NOT DEFINED CMAKE_BUILD_TYPE)
-
 project(demos VERSION 0.0.1 LANGUAGES CXX)
 
 find_package(libhal-lpc40 REQUIRED CONFIG)
 find_package(libhal-esp8266 REQUIRED CONFIG)
 
-set(DEMOS wlan_client http_get)
-set(TARGETS lpc4078 lpc4074)
+set(platform_library $ENV{LIBHAL_PROCESSOR_LIBRARY})
+set(platform $ENV{LIBHAL_PLATFORM})
 
-foreach(target IN LISTS TARGETS)
-    foreach(demo IN LISTS DEMOS)
-        set(current_project ${target}_${demo})
-        message(STATUS "Generating Demo for \"${current_project}\"")
-        add_executable(${current_project}
-            main.cpp
-            newlib.cpp
-            targets/${target}/initializer.cpp
-            applications/${demo}.cpp)
-        target_include_directories(${current_project} PUBLIC
-            ./
-            targets/${target})
-        target_compile_features(${current_project} PRIVATE cxx_std_20)
-        target_link_libraries(${current_project} PRIVATE
-            libhal::${target}
-            libhal::esp8266)
-        arm_post_build(${current_project})
-    endforeach()
+set(DEMOS at at_benchmark)
+
+foreach(demo IN LISTS DEMOS)
+    set(current_project ${demo}.elf)
+    message(STATUS "Generating Demo for \"${current_project}\"")
+    add_executable(${current_project}
+        main.cpp
+        targets/${platform}.cpp
+        applications/${demo}.cpp)
+    target_compile_options(${current_project} PRIVATE -g -Wall -Wextra)
+    target_compile_features(${current_project} PRIVATE cxx_std_20)
+    target_link_libraries(${current_project} PRIVATE
+        libhal::${platform_library}
+        libhal::esp8266)
+    arm_post_build(${current_project})
 endforeach()

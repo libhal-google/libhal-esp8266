@@ -13,13 +13,24 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.15)
-project(test_package LANGUAGES CXX)
 
-find_package(libhal-esp8266 REQUIRED CONFIG)
+project(libhal-esp8266 VERSION 0.0.1 LANGUAGES CXX)
+
+find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
 
-add_executable(${PROJECT_NAME} main.cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC .)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(${PROJECT_NAME} PRIVATE libhal::esp8266 libhal::util)
+if(NOT BUILD_TESTING STREQUAL OFF)
+  add_subdirectory(tests)
+endif()
+
+add_library(libhal-esp8266 src/at.cpp)
+
+target_include_directories(libhal-esp8266 PUBLIC include)
+target_compile_features(libhal-esp8266 PRIVATE cxx_std_20)
+target_compile_options(libhal-esp8266 PRIVATE -Wall -Wextra)
+target_link_libraries(libhal-esp8266 PRIVATE
+  libhal::libhal
+  libhal::util
+)
+
+install(TARGETS libhal-esp8266)
