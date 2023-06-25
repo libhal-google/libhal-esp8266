@@ -24,7 +24,7 @@ class demos(ConanFile):
 
     def requirements(self):
         self.requires("libhal-lpc40/2.0.0-alpha.3")
-        self.requires("libhal-esp8266/2.0.0-alpha.1")
+        self.requires("libhal-esp8266/2.0.0-alpha.2")
         self.build_requires("cmake-arm-embedded/1.0.0")
 
     def layout(self):

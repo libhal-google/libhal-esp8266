@@ -95,6 +95,7 @@ private:
       hal::serial& p_serial,
       std::span<hal::byte> p_buffer);
     void reset();
+    void set_state(std::uint8_t p_state);
 
   private:
     void update_state(hal::byte p_byte);
