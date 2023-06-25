@@ -22,11 +22,16 @@
 
 #include "../hardware_map.hpp"
 
-hal::result<hal::esp8266::hardware_map> initialize_target()
+hal::status initialize_processor()
+{
+  hal::cortex_m::initialize_data_section();
+
+  return hal::success();
+}
+
+hal::result<hal::esp8266::hardware_map> initialize_platform()
 {
   using namespace hal::literals;
-
-  hal::cortex_m::initialize_data_section();
 
   // Set the MCU to the maximum clock speed
   HAL_CHECK(hal::lpc40::clock::maximum(10.0_MHz));

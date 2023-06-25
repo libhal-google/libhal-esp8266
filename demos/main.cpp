@@ -19,13 +19,19 @@
 
 int main()
 {
-  auto init_result = initialize_target();
+  auto processor_status = initialize_processor();
 
-  if (!init_result) {
+  if (!processor_status) {
     hal::halt();
   }
 
-  auto hardware_map = init_result.value();
+  auto platform_status = initialize_platform();
+
+  if (!platform_status) {
+    hal::halt();
+  }
+
+  auto hardware_map = platform_status.value();
   auto is_finished = application(hardware_map);
 
   if (!is_finished) {

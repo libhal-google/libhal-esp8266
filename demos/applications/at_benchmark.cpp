@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
 #include <cinttypes>
+#include <string_view>
 
 #include <libhal-esp8266/at.hpp>
 #include <libhal-util/serial.hpp>
@@ -164,12 +166,26 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   bool read_complete = true;
   bool write_error = false;
   auto read_timeout = HAL_CHECK(hal::create_timeout(counter, 500ms));
-  auto bandwidth_cutoff = HAL_CHECK(hal::create_timeout(counter, 3s));
+  constexpr auto graph_cutoff = 2s;
+  auto bandwidth_timeout =
+    HAL_CHECK(hal::create_timeout(counter, graph_cutoff));
+
+  std::array<std::string_view, 5> table{
+    "\n",
+    " TIME |                          RESPONSES                          \n"sv,
+    " (2s) |    5    10   15   20   25   30   35   40  45  50  55  60  65\n"sv,
+    "------|-------------------------------------------------------------\n"sv,
+    "   +  |",
+  };
+
+  for (const auto& line : table) {
+    hal::print(console, line);
+  }
 
   while (true) {
-    if (!bandwidth_cutoff() || write_error) {
-      hal::print(console, "\n");
-      bandwidth_cutoff = HAL_CHECK(hal::create_timeout(counter, 5s));
+    if (!bandwidth_timeout() || write_error) {
+      hal::print(console, "\n   +  |");
+      bandwidth_timeout = HAL_CHECK(hal::create_timeout(counter, graph_cutoff));
     }
 
     if (write_error) {

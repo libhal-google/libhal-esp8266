@@ -31,4 +31,5 @@ struct hardware_map
 // Application function must be implemented by one of the compilation units
 // (.cpp) files.
 hal::status application(hal::esp8266::hardware_map& p_map);
-hal::result<hal::esp8266::hardware_map> initialize_target();
+hal::status initialize_processor();
+hal::result<hal::esp8266::hardware_map> initialize_platform();

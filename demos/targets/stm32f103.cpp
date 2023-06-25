@@ -14,7 +14,7 @@
 
 #include "../hardware_map.hpp"
 
-hal::result<hal::esp8266::hardware_map> initialize_target()
+hal::result<hal::esp8266::hardware_map> initialize_platform()
 {
   using namespace hal::literals;
   return hal::new_error();
