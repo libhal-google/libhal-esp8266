@@ -29,8 +29,8 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   auto& serial = *p_map.serial;
   auto& console = *p_map.console;
 
-  std::string_view ssid = "KAMMCE-PHONE";
-  std::string_view password = "roverteam";
+  std::string_view ssid = "ssid";
+  std::string_view password = "password";
 
   hal::print(console, "ESP8266 WiFi Client Application Starting...\n");
 
