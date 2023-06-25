@@ -75,6 +75,11 @@ void at::packet_manager::find(hal::serial& p_serial)
   }
 }
 
+void at::packet_manager::set_state(std::uint8_t p_state)
+{
+  m_state = p_state;
+}
+
 void at::packet_manager::update_state(hal::byte p_byte)
 {
   char c = static_cast<char>(p_byte);
@@ -313,8 +318,27 @@ hal::result<at::write_t> at::server_write(std::span<const hal::byte> p_data,
   HAL_CHECK(hal::write(*m_serial, "\r\n"));
   HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)), p_timeout));
   HAL_CHECK(hal::write(*m_serial, p_data));
-  HAL_CHECK(
-    try_until(skip_past(*m_serial, hal::as_bytes(send_finished)), p_timeout));
+
+  auto find_packet = hal::stream::find(hal::as_bytes(start_of_packet));
+  auto find_send_finish = hal::stream::find(hal::as_bytes(send_finished));
+
+  while (hal::in_progress(find_packet) && hal::in_progress(find_send_finish)) {
+    std::array<hal::byte, 1> buffer;
+    auto read_result = HAL_CHECK(m_serial->read(buffer));
+
+    // Pipe data into both streams
+    read_result.data | find_packet;
+    read_result.data | find_send_finish;
+
+    // Check if we've timed out
+    HAL_CHECK(p_timeout());
+  }
+
+  // If we found the start of a packet, we need to set the state of the packet
+  // manager to expect the first digit.
+  if (hal::finished(find_packet)) {
+    m_packet_manager.set_state(_packet_manager::expect_digit1);
+  }
 
   return write_t{ .data = p_data };
 }
