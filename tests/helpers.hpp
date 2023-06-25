@@ -79,7 +79,11 @@ struct mock_serial : public hal::serial
   result<read_t> driver_read(
     [[maybe_unused]] std::span<hal::byte> p_data) override
   {
-    return m_stream_out(p_data);
+    auto result = m_stream_out(p_data);
+    if (result.data.size() == 0) {
+      return hal::new_error();
+    }
+    return result;
   }
 
   result<flush_t> driver_flush() override
@@ -90,4 +94,5 @@ struct mock_serial : public hal::serial
   size_t rotation = 0;
   stream_out m_stream_out;
 };
+
 }  // namespace hal::esp8266
