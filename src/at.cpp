@@ -230,6 +230,17 @@ hal::status at::connect_to_ap(std::string_view p_ssid,
   return hal::success();
 }
 
+[[nodiscard]] hal::status at::set_ip_address(std::string_view p_ip,
+                                             deadline p_timeout)
+{
+  HAL_CHECK(write(*m_serial, "AT+CIPSTA=\""));
+  HAL_CHECK(write(*m_serial, p_ip));
+  HAL_CHECK(write(*m_serial, "\"\r\n"));
+  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
+
+  return hal::success();
+}
+
 hal::result<bool> at::is_connected_to_ap(deadline p_timeout)
 {
   // Query the device to determine if it is still connected
