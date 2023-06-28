@@ -25,7 +25,7 @@ required_conan_version = ">=1.50.0"
 
 class libhal_esp8266_conan(ConanFile):
     name = "libhal-esp8266"
-    version = "2.0.0-alpha.2"
+    version = "2.0.0-alpha.3"
     license = "Apache-2.0"
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://github.com/libhal/libhal-esp8266"

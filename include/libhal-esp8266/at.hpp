@@ -70,6 +70,8 @@ public:
   [[nodiscard]] hal::status connect_to_ap(std::string_view p_ssid,
                                           std::string_view p_password,
                                           deadline p_timeout);
+  [[nodiscard]] hal::status set_ip_address(std::string_view p_ip,
+                                           deadline p_timeout);
   [[nodiscard]] hal::result<bool> is_connected_to_ap(deadline p_timeout);
   [[nodiscard]] hal::status disconnect_from_ap(deadline p_timeout);
 
