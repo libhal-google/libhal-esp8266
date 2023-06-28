@@ -69,12 +69,14 @@ class libhal_esp8266_conan(ConanFile):
             raise ConanInvalidConfiguration(
                 f"{self.name} {self.version} requires C++{self._min_cppstd}, which your compiler ({compiler}-{version}) does not support")
 
+    def build_requirements(self):
+        self.tool_requires("libhal-cmake-util/0.0.1")
+        self.test_requires("libhal-mock/[^2.0.0]")
+        self.test_requires("boost-ext-ut/1.1.9")
+
     def requirements(self):
         self.requires("libhal/[^2.0.0]")
         self.build_requires("libhal-util/[^2.1.0]")
-        self.build_requires("cmake-arm-embedded/1.0.0")
-        self.test_requires("libhal-mock/[^2.0.0]")
-        self.test_requires("boost-ext-ut/1.1.9")
 
     def layout(self):
         cmake_layout(self)
