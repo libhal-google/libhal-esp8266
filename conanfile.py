@@ -76,7 +76,7 @@ class libhal_esp8266_conan(ConanFile):
 
     def requirements(self):
         self.requires("libhal/[^2.0.0]")
-        self.build_requires("libhal-util/[^2.1.0]")
+        self.build_requires("libhal-util/[^2.0.0]")
 
     def layout(self):
         cmake_layout(self)

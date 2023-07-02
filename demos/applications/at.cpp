@@ -79,7 +79,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     HAL_CHECK(esp8266.server_write(hal::as_bytes(get_request), timeout));
 
     // Wait 1 second before reading response back
-    HAL_CHECK(hal::delay(counter, 1000ms));
+    hal::delay(counter, 1000ms);
 
     // Read response back from serial port
     auto received = HAL_CHECK(esp8266.server_read(buffer)).data;
