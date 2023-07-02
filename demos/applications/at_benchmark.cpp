@@ -205,7 +205,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     if (write_error) {
       hal::print(console, "Reconnecting...\n");
       // Wait 1s before attempting to reconnect
-      HAL_CHECK(hal::delay(counter, 1s));
+      hal::delay(counter, 1s);
 
       timeout = HAL_CHECK(hal::create_timeout(counter, 20s));
       auto result = establish_connection(
@@ -222,7 +222,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
                                                       "Host: httpstat.us:80\r\n"
                                                       "\r\n";
 
-      HAL_CHECK(hal::delay(counter, 50ms));
+      hal::delay(counter, 50ms);
 
       // Send out HTTP GET request
       timeout = HAL_CHECK(hal::create_timeout(counter, 500ms));
