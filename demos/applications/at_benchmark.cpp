@@ -158,7 +158,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   // Initialize esp8266 & create driver object
   hal::print(console, "Create & initialize esp8266...\n");
-  auto timeout = HAL_CHECK(hal::create_timeout(counter, 10s));
+  auto timeout = hal::create_timeout(counter, 10s);
   auto esp8266 = HAL_CHECK(hal::esp8266::at::create(serial, timeout));
   hal::print(console, "esp8266 created & initialized!! \n");
 
@@ -179,10 +179,9 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   bool header_finished = false;
   bool read_complete = true;
   bool write_error = false;
-  auto read_timeout = HAL_CHECK(hal::create_timeout(counter, 1000ms));
+  auto read_timeout = hal::create_timeout(counter, 1000ms);
   constexpr auto graph_cutoff = 2s;
-  auto bandwidth_timeout =
-    HAL_CHECK(hal::create_timeout(counter, graph_cutoff));
+  auto bandwidth_timeout = hal::create_timeout(counter, graph_cutoff);
 
   std::array<std::string_view, 5> table{
     "\n",
@@ -199,7 +198,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   while (true) {
     if (!bandwidth_timeout() || write_error) {
       hal::print(console, "\n   +  |");
-      bandwidth_timeout = HAL_CHECK(hal::create_timeout(counter, graph_cutoff));
+      bandwidth_timeout = hal::create_timeout(counter, graph_cutoff);
     }
 
     if (write_error) {
@@ -207,7 +206,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
       // Wait 1s before attempting to reconnect
       hal::delay(counter, 1s);
 
-      timeout = HAL_CHECK(hal::create_timeout(counter, 20s));
+      timeout = hal::create_timeout(counter, 20s);
       auto result = establish_connection(
         esp8266, console, ssid, password, socket_config, ip, timeout);
       if (!result) {
@@ -225,7 +224,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
       hal::delay(counter, 50ms);
 
       // Send out HTTP GET request
-      timeout = HAL_CHECK(hal::create_timeout(counter, 500ms));
+      timeout = hal::create_timeout(counter, 500ms);
       auto status = esp8266.server_write(hal::as_bytes(get_request), timeout);
 
       if (!status) {
@@ -236,7 +235,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
       read_complete = false;
       header_finished = false;
-      read_timeout = HAL_CHECK(hal::create_timeout(counter, 1000ms));
+      read_timeout = hal::create_timeout(counter, 1000ms);
     }
 
     auto received = HAL_CHECK(esp8266.server_read(buffer)).data;
