@@ -32,7 +32,8 @@ class libhal_esp8266_conan(ConanFile):
     description = ("A collection of drivers for the esp8266")
     topics = ("esp8266", "wifi", "tcp/ip", "mcu")
     settings = "compiler", "build_type", "os", "arch"
-    exports_sources = "include/*", "tests/*", "LICENSE", "CMakeLists.txt", "src/*"
+    exports_sources = ("include/*", "tests/*", "LICENSE",
+                       "CMakeLists.txt", "src/*")
     generators = "CMakeToolchain", "CMakeDeps"
 
     @property
@@ -76,7 +77,7 @@ class libhal_esp8266_conan(ConanFile):
 
     def requirements(self):
         self.requires("libhal/[^2.0.0]")
-        self.build_requires("libhal-util/[^2.0.0]")
+        self.requires("libhal-util/[^2.0.0]")
 
     def layout(self):
         cmake_layout(self)

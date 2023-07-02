@@ -39,7 +39,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   // Connect to WiFi AP
   hal::print(console, "Create esp8266 object...\n");
-  auto timeout = HAL_CHECK(hal::create_timeout(counter, 20s));
+  auto timeout = hal::create_timeout(counter, 20s);
   auto esp8266 = HAL_CHECK(hal::esp8266::at::create(serial, timeout));
   hal::print(console, "Esp8266 created! \n");
 
@@ -75,7 +75,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     hal::print(console, "\n\n================= SENDING! =================\n\n");
     hal::print(console, get_request);
 
-    timeout = HAL_CHECK(hal::create_timeout(counter, 500ms));
+    timeout = hal::create_timeout(counter, 500ms);
     HAL_CHECK(esp8266.server_write(hal::as_bytes(get_request), timeout));
 
     // Wait 1 second before reading response back
