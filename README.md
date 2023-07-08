@@ -1,62 +1,73 @@
-<div align="center">
+# libhal-esp8266
 
-[![✅CI](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml/badge.svg)](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml)
-[![coverage](https://libhal.github.io/libhal-esp8266/coverage/coverage.svg)](https://libhal.github.io/libhal-esp8266/coverage/)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b084e6d5962d49a9afcb275d62cd6586)](https://www.codacy.com/gh/libhal/libhal/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=libhal/libhal&amp;utm_campaign=Badge_Grade)
+[![✅ Checks](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml/badge.svg)](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml)
+[![Coverage](https://libhal.github.io/libhal-esp8266/coverage/coverage.svg)](https://libhal.github.io/libhal-esp8266/coverage/)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b084e6d5962d49a9afcb275d62cd6586)](https://www.codacy.com/gh/libhal/libhal-esp8266/dashboard?utm_source=github.com&utm_medium=referral&utm_content=libhal/libhal-esp8266&utm_campaign=Badge_Grade)
 [![GitHub stars](https://img.shields.io/github/stars/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/network)
 [![GitHub issues](https://img.shields.io/github/issues/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/issues)
 [![Latest Version](https://libhal.github.io/libhal-esp8266/latest_version.svg)](https://github.com/libhal/libhal-esp8266/blob/main/conanfile.py)
-[![ConanCenter Version](https://repology.org/badge/version-for-repo/conancenter/libhal-esp8266.svg)](https://conan.io/center/libhal-esp8266)
 
-</div>
+libhal device library for the esp8266 wifi module/soc from
+[espressif](https://www.espressif.com/en/products/socs/esp8266).
 
-# libhal-esp8266
+## 📚 Software APIs & Usage
 
-Library for controlling esp8266 WiFi modules via serial AT commands using the
-libhal interfaces.
+To learn about the available drivers and APIs see the
+[Doxygen](https://libhal.github.io/libhal-esp8266/api)
+documentation page or look at the
+[`include/libhal-esp8266`](https://github.com/libhal/libhal-esp8266/tree/main/include/libhal-esp8266)
+directory.
 
-## 🏗️ WARNING: Work in progress! 🚧
-- Only supports GET requests
-- GET requests must be below 2048 bytes (multi packet transmission not possible
-yet).
+To see how each driver is used see the
+[`demos/`](https://github.com/libhal/libhal-esp8266/tree/main/demos) directory.
 
-## Supported Firmware Version
+## 🧰 Setup
 
-This library supports the esp8266 AT commands for version 2.2.0 and above.
-The installation procedure described by the Espressif documentation doesn't seem
-to work. What worked was following this article
-[Installing the AT Firmware on an ESP-01S](https://www.sigmdel.ca/michel/ha/esp8266/ESP01_AT_Firmware_en.html).
+Following the
+[🚀 Getting Started](https://libhal.github.io/2.1/getting_started/)
+instructions.
 
-You'll probably want to pick up an esp8266 programmer to make programming the
-device easy. There are various ones out there. One suggestion is this one:
-[ESP8266 Adapter Programmer Downloader](https://www.amazon.com/dp/B097SZMK2W).
+## 📡 Installing Profiles
 
-The shortened steps to install version 2.2.0 on your esp-01 is as follows:
-
-1. Install esptool.py
+The `libhal-lpc40` profiles used for demos. To install them use the following
+commands.
 
 ```bash
-pip install esptool
+conan config install -sf conan/profiles/ -tf profiles https://github.com/libhal/libhal-armcortex.git
+conan config install -sf conan/profiles/ -tf profiles https://github.com/libhal/libhal-lpc40.git
 ```
 
-2. Download build 2.2.0 firmware: [ESP8266-1MB-tx1rx3-AT_V2.2.zip](https://github.com/jandrassy/UnoWiFiDevEdSerial1/wiki/files/ESP8266-1MB-tx1rx3-AT_V2.2.zip)
-3. Unzip the package and enter directory in a terminal
-4. Flash Firmware on device
+## 🏗️ Building Demos
+
+To build demos, start at the root of the repo and execute the following command:
 
 ```bash
-esptool.py -p PORT_NAME -b 115200 write_flash -e @download.config
+conan build demos -pr lpc4078 -s build_type=Debug
 ```
 
-Replace `PORT_NAME` with the port name OR path to the port. Something like
-`COM3` for Windows, `/dev/tty.usbserial-10` for MacOS, or `/dev/ttyUSB0` for
-Linux.
+or for the `lpc4074`
 
-NOTE: that the binaries were built by JAndrassy. The binaries have been mirrored
-on this repo in the event that the other repo goes away. Full path to where
-these can be found is here:
+```bash
+conan build demos -pr lpc4074 -s build_type=Debug
+```
 
-https://github.com/JAndrassy/UnoWiFiDevEdSerial1/wiki/Firmware#preparing-for-flashing
+## 🔌 Device Wiring & Hookup guide (ESP-01 variant)
+
+1. Locate the TX (UART Transmit Data) and RX (UART Receive Data) pins on
+   your microcontroller port.
+2. Connect the microcontroller's TX pin to the RX pin of the ESP-01 pin.
+3. Connect the microcontroller's RX pin to the TX pin of the ESP-01 pin.
+4. Supply adequate power to the ESP-01 with 3v3 at the VCC line.
+
+## 📦 Adding `libhal-esp8266` to your project
+
+Add the following to your `requirements()` method:
+
+```python
+    def requirements(self):
+        self.requires("libhal-esp8266/[^2.0.0]")
+```
 
 ## Contributing
 
