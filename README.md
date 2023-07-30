@@ -2,11 +2,9 @@
 
 [![✅ Checks](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml/badge.svg)](https://github.com/libhal/libhal-esp8266/actions/workflows/ci.yml)
 [![Coverage](https://libhal.github.io/libhal-esp8266/coverage/coverage.svg)](https://libhal.github.io/libhal-esp8266/coverage/)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/b084e6d5962d49a9afcb275d62cd6586)](https://www.codacy.com/gh/libhal/libhal-esp8266/dashboard?utm_source=github.com&utm_medium=referral&utm_content=libhal/libhal-esp8266&utm_campaign=Badge_Grade)
 [![GitHub stars](https://img.shields.io/github/stars/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/network)
 [![GitHub issues](https://img.shields.io/github/issues/libhal/libhal-esp8266.svg)](https://github.com/libhal/libhal-esp8266/issues)
-[![Latest Version](https://libhal.github.io/libhal-esp8266/latest_version.svg)](https://github.com/libhal/libhal-esp8266/blob/main/conanfile.py)
 
 libhal device library for the esp8266 wifi module/soc from
 [espressif](https://www.espressif.com/en/products/socs/esp8266).
