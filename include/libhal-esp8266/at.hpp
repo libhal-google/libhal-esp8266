@@ -22,13 +22,17 @@
 #include <libhal/serial.hpp>
 #include <libhal/timeout.hpp>
 
+/**
+ * @brief libhal compatible libraries for the esp8266 device and microcontroller
+ *
+ */
 namespace hal::esp8266 {
 
-class socket;
 /**
- * @brief esp8266 AT command driver for connecting to WiFi Access points and
- * sending network traffic over wifi.
+ * @brief AT Command network driver for the esp8266
  *
+ * The esp8266::at driver can be used to connect to a WiFi access points (AP)
+ * and sending network traffic using TCP and UDP over IP.
  */
 class at
 {
