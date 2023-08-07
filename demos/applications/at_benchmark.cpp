@@ -110,10 +110,10 @@ enum class connection_state
 
 struct http_header_parser_t
 {
-  hal::stream::find find_header_start;
-  hal::stream::find find_content_length;
-  hal::stream::parse<std::uint32_t> parse_content_length;
-  hal::stream::find find_end_of_header;
+  hal::stream_find find_header_start;
+  hal::stream_find find_content_length;
+  hal::stream_parse<std::uint32_t> parse_content_length;
+  hal::stream_find find_end_of_header;
 };
 
 http_header_parser_t new_http_header_parser()
@@ -121,11 +121,11 @@ http_header_parser_t new_http_header_parser()
   using namespace std::literals;
 
   return http_header_parser_t{
-    .find_header_start = hal::stream::find(hal::as_bytes("HTTP/1.1 "sv)),
+    .find_header_start = hal::stream_find(hal::as_bytes("HTTP/1.1 "sv)),
     .find_content_length =
-      hal::stream::find(hal::as_bytes("Content-Length: "sv)),
-    .parse_content_length = hal::stream::parse<std::uint32_t>(),
-    .find_end_of_header = hal::stream::find(hal::as_bytes("\r\n\r\n"sv)),
+      hal::stream_find(hal::as_bytes("Content-Length: "sv)),
+    .parse_content_length = hal::stream_parse<std::uint32_t>(),
+    .find_end_of_header = hal::stream_find(hal::as_bytes("\r\n\r\n"sv)),
   };
 }
 }  // namespace
@@ -175,7 +175,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
   auto http_header_parser = new_http_header_parser();
   // Skip of 0 means it starts in the finished state.
-  auto skip_payload = hal::stream::skip(0);
+  auto skip_payload = hal::stream_skip(0);
   bool header_finished = false;
   bool read_complete = true;
   bool write_error = false;
@@ -247,7 +247,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     if (!header_finished &&
         hal::finished(http_header_parser.find_end_of_header)) {
       auto content_length = http_header_parser.parse_content_length.value();
-      skip_payload = hal::stream::skip(content_length);
+      skip_payload = hal::stream_skip(content_length);
       header_finished = true;
     }
 
@@ -257,7 +257,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
         read_complete = true;
 
         http_header_parser = new_http_header_parser();
-        skip_payload = hal::stream::skip(0);
+        skip_payload = hal::stream_skip(0);
 
         hal::print(console, ".");
       }

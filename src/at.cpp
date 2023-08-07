@@ -246,8 +246,8 @@ hal::result<bool> at::is_connected_to_ap(deadline p_timeout)
   // Query the device to determine if it is still connected
   HAL_CHECK(write(*m_serial, "AT+CWJAP?\r\n"));
 
-  auto find_confirm = hal::stream::find(hal::as_bytes(ap_connected));
-  auto find_ok = hal::stream::find(hal::as_bytes(ok_response));
+  auto find_confirm = hal::stream_find(hal::as_bytes(ap_connected));
+  auto find_ok = hal::stream_find(hal::as_bytes(ok_response));
 
   while (hal::in_progress(find_confirm) && hal::in_progress(find_ok)) {
     std::array<hal::byte, 1> buffer;
@@ -330,8 +330,8 @@ hal::result<at::write_t> at::server_write(std::span<const hal::byte> p_data,
   HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)), p_timeout));
   HAL_CHECK(hal::write(*m_serial, p_data));
 
-  auto find_packet = hal::stream::find(hal::as_bytes(start_of_packet));
-  auto find_send_finish = hal::stream::find(hal::as_bytes(send_finished));
+  auto find_packet = hal::stream_find(hal::as_bytes(start_of_packet));
+  auto find_send_finish = hal::stream_find(hal::as_bytes(send_finished));
 
   while (hal::in_progress(find_packet) && hal::in_progress(find_send_finish)) {
     std::array<hal::byte, 1> buffer;
@@ -362,9 +362,9 @@ hal::result<bool> at::is_connected_to_server(deadline p_timeout)
   // Query the device to determine if it is still connected
   HAL_CHECK(write(*m_serial, "AT+CIPSTATUS\r\n"));
 
-  auto find_status = hal::stream::find(hal::as_bytes(response_status));
-  auto find_start = hal::stream::find(hal::as_bytes(response_start));
-  auto find_ok = hal::stream::find(hal::as_bytes(ok_response));
+  auto find_status = hal::stream_find(hal::as_bytes(response_status));
+  auto find_start = hal::stream_find(hal::as_bytes(response_start));
+  auto find_ok = hal::stream_find(hal::as_bytes(ok_response));
 
   while (hal::in_progress(find_start) && hal::in_progress(find_ok)) {
     std::array<hal::byte, 1> buffer;

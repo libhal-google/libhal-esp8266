@@ -44,6 +44,11 @@ find_package(libhal REQUIRED CONFIG)
 find_package(libhal-util REQUIRED CONFIG)
 
 add_executable(${PROJECT_NAME}
+
+  # Source
+  ../src/at.cpp
+
+  # Tests
   at.test.cpp
   main.test.cpp)
 
