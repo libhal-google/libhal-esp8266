@@ -60,7 +60,7 @@ int main()
 namespace boost {
 void throw_exception(std::exception const& e)
 {
-  std::abort();
+  hal::halt();
 }
 }  // namespace boost
 
