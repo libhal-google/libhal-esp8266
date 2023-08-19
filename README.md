@@ -50,14 +50,6 @@ or for the `lpc4074`
 conan build demos -pr lpc4074 -s build_type=Debug
 ```
 
-## 🔌 Device Wiring & Hookup guide (ESP-01 variant)
-
-1. Locate the TX (UART Transmit Data) and RX (UART Receive Data) pins on
-   your microcontroller port.
-2. Connect the microcontroller's TX pin to the RX pin of the ESP-01 pin.
-3. Connect the microcontroller's RX pin to the TX pin of the ESP-01 pin.
-4. Supply adequate power to the ESP-01 with 3v3 at the VCC line.
-
 ## 📦 Adding `libhal-esp8266` to your project
 
 Add the following to your `requirements()` method:
@@ -66,6 +58,34 @@ Add the following to your `requirements()` method:
     def requirements(self):
         self.requires("libhal-esp8266/[^2.0.0]")
 ```
+
+## 🔌 Device Wiring & Hookup guide (ESP-01 variant)
+
+1. Locate the TX (UART Transmit Data) and RX (UART Receive Data) pins on
+   your microcontroller port.
+2. Connect the microcontroller's TX pin to the RX pin of the ESP-01 pin.
+3. Connect the microcontroller's RX pin to the TX pin of the ESP-01 pin.
+4. Supply adequate power to the ESP-01 with 3v3 at the VCC line.
+
+## :arrow_up: Upgrading esp-01 firmware
+
+Install `esptool.py`:
+
+```bash
+pip install esptool
+```
+
+Change into the `third_party/2.2.0` directory and flash the esp-01 using the
+following command:
+
+```bash
+esptool.py -p /dev/tty.usbserial-210 -b 115200 write_flash -e @download.config
+```
+
+Replace `/dev/tty.usbserial-210` with the correct TTY or COM port device.
+
+If version `2.2.0` does not work, then try `1.7.5`. The flashing command is the
+same.
 
 ## Contributing
 
