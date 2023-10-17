@@ -22,13 +22,6 @@
 
 #include "../hardware_map.hpp"
 
-hal::status initialize_processor()
-{
-  // Handled by picolibc's crt0.s startup code
-
-  return hal::success();
-}
-
 hal::result<hal::esp8266::hardware_map> initialize_platform()
 {
   using namespace hal::literals;

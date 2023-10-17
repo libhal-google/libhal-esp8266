@@ -1,3 +1,17 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <libhal-esp8266/at.hpp>
 
 #include <algorithm>
@@ -12,8 +26,7 @@
 
 namespace hal::esp8266 {
 namespace {
-[[nodiscard]] hal::skip_past skip(hal::serial* p_serial,
-                                  std::string_view p_string)
+[[nodiscard]] auto skip(hal::serial* p_serial, std::string_view p_string)
 {
   return hal::skip_past(*p_serial, as_bytes(p_string));
 }
@@ -35,8 +48,7 @@ namespace {
 }
 }  // namespace
 
-namespace _packet_manager {
-enum state : std::uint8_t
+enum packet_manager_state : std::uint8_t
 {
   expect_plus,
   expect_i,
@@ -50,10 +62,9 @@ enum state : std::uint8_t
   expect_colon,
   header_complete
 };
-}
 
 at::packet_manager::packet_manager()
-  : m_state(_packet_manager::state::expect_plus)
+  : m_state(packet_manager_state::expect_plus)
   , m_length(0)
 {
 }
@@ -84,69 +95,69 @@ void at::packet_manager::update_state(hal::byte p_byte)
 {
   char c = static_cast<char>(p_byte);
   switch (m_state) {
-    case _packet_manager::state::expect_plus:
+    case packet_manager_state::expect_plus:
       if (c == '+') {
-        m_state = _packet_manager::state::expect_i;
+        m_state = packet_manager_state::expect_i;
       }
       break;
-    case _packet_manager::state::expect_i:
+    case packet_manager_state::expect_i:
       if (c == 'I') {
-        m_state = _packet_manager::state::expect_p;
+        m_state = packet_manager_state::expect_p;
       } else {
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
-    case _packet_manager::state::expect_p:
+    case packet_manager_state::expect_p:
       if (c == 'P') {
-        m_state = _packet_manager::state::expect_d;
+        m_state = packet_manager_state::expect_d;
       } else {
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
-    case _packet_manager::state::expect_d:
+    case packet_manager_state::expect_d:
       if (c == 'D') {
-        m_state = _packet_manager::state::expect_comma;
+        m_state = packet_manager_state::expect_comma;
       } else {
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
-    case _packet_manager::state::expect_comma:
+    case packet_manager_state::expect_comma:
       if (c == ',') {
-        m_state = _packet_manager::state::expect_digit1;
+        m_state = packet_manager_state::expect_digit1;
         m_length = 0;  // Reset the length because we're about to parse it
       } else {
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
-    case _packet_manager::state::expect_digit1:
-    case _packet_manager::state::expect_digit2:
-    case _packet_manager::state::expect_digit3:
-    case _packet_manager::state::expect_digit4:
+    case packet_manager_state::expect_digit1:
+    case packet_manager_state::expect_digit2:
+    case packet_manager_state::expect_digit3:
+    case packet_manager_state::expect_digit4:
       if (isdigit(c)) {
         m_length = m_length * 10 + (c - '0');  // Accumulate the length
         m_state += 1;
       } else if (c == ':') {
-        m_state = _packet_manager::state::header_complete;
+        m_state = packet_manager_state::header_complete;
       } else {
         // It's not a digit or a ':', so this is an error
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
-    case _packet_manager::state::expect_colon:
+    case packet_manager_state::expect_colon:
       if (c == ':') {
-        m_state = _packet_manager::state::header_complete;
+        m_state = packet_manager_state::header_complete;
       } else {
-        m_state = _packet_manager::state::expect_plus;
+        m_state = packet_manager_state::expect_plus;
       }
       break;
     default:
-      m_state = _packet_manager::state::expect_plus;
+      m_state = packet_manager_state::expect_plus;
   }
 }
 
 bool at::packet_manager::is_complete_header()
 {
-  return m_state == _packet_manager::state::header_complete;
+  return m_state == packet_manager_state::header_complete;
 }
 
 std::uint16_t at::packet_manager::packet_length()
@@ -178,7 +189,7 @@ hal::result<std::span<hal::byte>> at::packet_manager::read_packet(
 
 void at::packet_manager::reset()
 {
-  m_state = _packet_manager::state::expect_plus;
+  m_state = packet_manager_state::expect_plus;
   m_length = 0;
 }
 
@@ -211,6 +222,7 @@ hal::status at::reset(deadline p_timeout)
   return hal::success();
 }
 
+// NOLINTNEXTLINE
 hal::status at::connect_to_ap(std::string_view p_ssid,
                               std::string_view p_password,
                               deadline p_timeout)
@@ -348,7 +360,7 @@ hal::result<at::write_t> at::server_write(std::span<const hal::byte> p_data,
   // If we found the start of a packet, we need to set the state of the packet
   // manager to expect the first digit.
   if (hal::finished(find_packet)) {
-    m_packet_manager.set_state(_packet_manager::expect_digit1);
+    m_packet_manager.set_state(packet_manager_state::expect_digit1);
   }
 
   return write_t{ .data = p_data };

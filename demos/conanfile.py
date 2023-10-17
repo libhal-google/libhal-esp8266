@@ -23,12 +23,12 @@ class demos(ConanFile):
     default_options = {"platform": "unspecified"}
 
     def build_requirements(self):
-        self.tool_requires("libhal-cmake-util/[^1.0.0]")
+        self.tool_requires("libhal-cmake-util/2.2.0")
 
     def requirements(self):
         if str(self.options.platform).startswith("lpc40"):
             self.requires("libhal-lpc40/[^2.1.1]")
-        self.requires("libhal-esp8266/2.0.1")
+        self.requires("libhal-esp8266/2.0.2")
 
     def layout(self):
         platform_directory = "build/" + str(self.options.platform)

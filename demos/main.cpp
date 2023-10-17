@@ -16,12 +16,6 @@
 
 int main()
 {
-  auto processor_status = initialize_processor();
-
-  if (!processor_status) {
-    hal::halt();
-  }
-
   auto platform_status = initialize_platform();
 
   if (!platform_status) {
