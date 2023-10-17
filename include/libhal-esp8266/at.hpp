@@ -66,6 +66,9 @@ public:
 
   [[nodiscard]] static result<at> create(hal::serial& p_serial,
                                          deadline p_timeout);
+  template<unsigned id>
+  [[nodiscard]] static result<at&> initialize(hal::serial& p_serial,
+                                              deadline p_timeout);
 
   // System Control Commands
   [[nodiscard]] hal::status reset(deadline p_timeout);

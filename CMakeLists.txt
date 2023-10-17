@@ -14,23 +14,23 @@
 
 cmake_minimum_required(VERSION 3.15)
 
-project(libhal-esp8266 VERSION 0.0.1 LANGUAGES CXX)
+project(libhal-esp8266 LANGUAGES CXX)
 
-find_package(libhal REQUIRED CONFIG)
-find_package(libhal-util REQUIRED CONFIG)
+libhal_test_and_make_library(
+  LIBRARY_NAME libhal-esp8266
 
-if(NOT BUILD_TESTING STREQUAL OFF)
-  add_subdirectory(tests)
-endif()
+  SOURCES
+  src/at.cpp
 
-add_library(libhal-esp8266 src/at.cpp)
+  TEST_SOURCES
+  tests/at.test.cpp
+  tests/main.test.cpp
 
-target_include_directories(libhal-esp8266 PUBLIC include)
-target_compile_features(libhal-esp8266 PRIVATE cxx_std_20)
-target_compile_options(libhal-esp8266 PRIVATE -Wall -Wextra)
-target_link_libraries(libhal-esp8266 PRIVATE
+  PACKAGES
+  libhal
+  libhal-util
+
+  LINK_LIBRARIES
   libhal::libhal
   libhal::util
 )
-
-install(TARGETS libhal-esp8266)
