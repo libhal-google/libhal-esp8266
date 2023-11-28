@@ -52,13 +52,13 @@ class libhal_esp8266_conan(ConanFile):
             check_min_cppstd(self, self._min_cppstd)
 
     def build_requirements(self):
-        self.tool_requires("libhal-cmake-util/3.0.0")
+        self.tool_requires("libhal-cmake-util/3.0.1")
         self.test_requires("libhal-mock/[^2.0.1]")
         self.test_requires("boost-ext-ut/1.1.9")
 
     def requirements(self):
-        self.requires("libhal/[^2.0.0]")
-        self.requires("libhal-util/[^3.0.0]")
+        self.requires("libhal/[^2.0.3]", transitive_headers=True)
+        self.requires("libhal-util/[^3.0.1]")
 
     def layout(self):
         cmake_layout(self)
