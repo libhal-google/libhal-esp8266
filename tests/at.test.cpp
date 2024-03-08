@@ -17,7 +17,7 @@ void at_test()
 
     // Exercise
     // Verify
-    [[maybe_unused]] auto at = at::create(mock, hal::never_timeout()).value();
+    [[maybe_unused]] at my_at(mock, hal::never_timeout());
   };
 }
 }  // namespace hal::esp8266

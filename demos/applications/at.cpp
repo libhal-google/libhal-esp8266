@@ -20,7 +20,7 @@
 #include "../hardware_map.hpp"
 #include "helper.hpp"
 
-hal::status application(hal::esp8266::hardware_map& p_map)
+void application(hardware_map_t& p_map)
 {
   using namespace std::chrono_literals;
   using namespace hal::literals;
@@ -40,27 +40,27 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Connect to WiFi AP
   hal::print(console, "Create esp8266 object...\n");
   auto timeout = hal::create_timeout(counter, 20s);
-  auto esp8266 = HAL_CHECK(hal::esp8266::at::create(serial, timeout));
+  hal::esp8266::at esp8266(serial, timeout);
   hal::print(console, "Esp8266 created! \n");
 
   hal::print(console, "Connecting to AP...\n");
-  HAL_CHECK(esp8266.connect_to_ap(ssid, password, timeout));
+  esp8266.connect_to_ap(ssid, password, timeout);
   hal::print(console, "AP Connected!\n");
 
-  bool is_connected = HAL_CHECK(esp8266.is_connected_to_ap(timeout));
+  bool is_connected = esp8266.is_connected_to_ap(timeout);
 
   if (is_connected) {
     hal::print(console, "AP connection verified!\n");
   }
 
   hal::print(console, "Connecting to server...\n");
-  HAL_CHECK(esp8266.connect_to_server(
+  esp8266.connect_to_server(
     {
       .type = hal::esp8266::at::socket_type::tcp,
       .domain = "example.com",
       .port = 80,
     },
-    timeout));
+    timeout);
   hal::print(console, "Server connected!\n");
 
   while (true) {
@@ -76,17 +76,15 @@ hal::status application(hal::esp8266::hardware_map& p_map)
     hal::print(console, get_request);
 
     timeout = hal::create_timeout(counter, 500ms);
-    HAL_CHECK(esp8266.server_write(hal::as_bytes(get_request), timeout));
+    esp8266.server_write(hal::as_bytes(get_request), timeout);
 
     // Wait 1 second before reading response back
     hal::delay(counter, 1000ms);
 
     // Read response back from serial port
-    auto received = HAL_CHECK(esp8266.server_read(buffer)).data;
+    auto received = esp8266.server_read(buffer);
 
     hal::print(console, "\n>>>>>>>>>>>>>>>>> RESPONSE <<<<<<<<<<<<<<<<<\n\n");
     hal::print(console, received);
   }
-
-  return hal::success();
 }

@@ -21,6 +21,7 @@
 #include <libhal-util/as_bytes.hpp>
 #include <libhal-util/serial.hpp>
 #include <libhal-util/streams.hpp>
+#include <libhal/error.hpp>
 #include <libhal/serial.hpp>
 
 namespace hal::esp8266 {
@@ -48,7 +49,7 @@ public:
     std::copy_n(m_output.begin(), size, p_buffer.begin());
     m_output = m_output.subspan(size);
 
-    return hal::serial::read_t{
+    return {
       .data = p_buffer.subspan(0, size),
       .available = 0,
       .capacity = 1024,
@@ -61,13 +62,11 @@ private:
 
 struct mock_serial : public hal::serial
 {
-  hal::status driver_configure(
-    [[maybe_unused]] const settings& p_settings) override
+  void driver_configure(const settings&) override
   {
-    return hal::success();
   }
 
-  result<write_t> driver_write(std::span<const hal::byte> p_data) override
+  write_t driver_write(std::span<const hal::byte> p_data) override
   {
     for (const auto& byte : p_data) {
       putchar(static_cast<char>(byte));
@@ -76,23 +75,20 @@ struct mock_serial : public hal::serial
     return write_t{ .data = p_data };
   }
 
-  result<read_t> driver_read(
-    [[maybe_unused]] std::span<hal::byte> p_data) override
+  read_t driver_read(std::span<hal::byte> p_data) override
   {
     auto result = m_stream_out(p_data);
     if (result.data.size() == 0) {
-      return hal::new_error();
+      hal::safe_throw(hal::operation_not_supported(this));
     }
     return result;
   }
 
-  result<flush_t> driver_flush() override
+  void driver_flush() override
   {
-    return flush_t{};
   }
 
   size_t rotation = 0;
   stream_out m_stream_out;
 };
-
 }  // namespace hal::esp8266

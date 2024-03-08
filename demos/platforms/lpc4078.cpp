@@ -15,43 +15,66 @@
 #include <libhal-armcortex/dwt_counter.hpp>
 #include <libhal-armcortex/startup.hpp>
 #include <libhal-armcortex/system_control.hpp>
+#include <libhal-exceptions/control.hpp>
 #include <libhal-lpc40/clock.hpp>
 #include <libhal-lpc40/constants.hpp>
+#include <libhal-lpc40/output_pin.hpp>
 #include <libhal-lpc40/uart.hpp>
-#include <libhal-util/as_bytes.hpp>
+#include <libhal-util/steady_clock.hpp>
 
 #include "../hardware_map.hpp"
 
-hal::result<hal::esp8266::hardware_map> initialize_platform()
+[[noreturn]] void terminate_handler() noexcept
+{
+  hal::cortex_m::dwt_counter steady_clock(
+    hal::lpc40::get_frequency(hal::lpc40::peripheral::cpu));
+
+  hal::lpc40::output_pin led(1, 10);
+
+  while (true) {
+    using namespace std::chrono_literals;
+    led.level(false);
+    hal::delay(steady_clock, 100ms);
+    led.level(true);
+    hal::delay(steady_clock, 100ms);
+    led.level(false);
+    hal::delay(steady_clock, 100ms);
+    led.level(true);
+    hal::delay(steady_clock, 1000ms);
+  }
+}
+
+hardware_map_t initialize_platform()
 {
   using namespace hal::literals;
 
   // Set the MCU to the maximum clock speed
-  HAL_CHECK(hal::lpc40::clock::maximum(10.0_MHz));
+  hal::lpc40::maximum(10.0_MHz);
+
+  hal::set_terminate(terminate_handler);
 
   // Create a hardware counter
-  auto& clock = hal::lpc40::clock::get();
-  auto cpu_frequency = clock.get_frequency(hal::lpc40::peripheral::cpu);
+  auto cpu_frequency = hal::lpc40::get_frequency(hal::lpc40::peripheral::cpu);
   static hal::cortex_m::dwt_counter counter(cpu_frequency);
 
   static std::array<hal::byte, 64> uart0_buffer{};
-  static std::array<hal::byte, 8192> uart3_buffer{};
 
   // Get and initialize UART0 for UART based logging
-  static auto uart0 = HAL_CHECK(hal::lpc40::uart::get(0,
-                                                      uart0_buffer,
-                                                      hal::serial::settings{
-                                                        .baud_rate = 115200,
-                                                      }));
+  static hal::lpc40::uart uart0(0,
+                                uart0_buffer,
+                                hal::serial::settings{
+                                  .baud_rate = 115200,
+                                });
 
+  static std::array<hal::byte, 8192> uart3_buffer{};
   // Get and initialize UART3 with a 8kB receive buffer
-  static auto uart3 = HAL_CHECK(hal::lpc40::uart::get(3,
-                                                      uart3_buffer,
-                                                      hal::serial::settings{
-                                                        .baud_rate = 115200,
-                                                      }));
+  static hal::lpc40::uart uart3(3,
+                                uart3_buffer,
+                                hal::serial::settings{
+                                  .baud_rate = 115200,
+                                });
 
-  return hal::esp8266::hardware_map{
+  return {
     .console = &uart0,
     .serial = &uart3,
     .counter = &counter,

@@ -12,10 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <libhal/error.hpp>
+
 #include "../hardware_map.hpp"
 
-hal::result<hal::esp8266::hardware_map> initialize_platform()
+hardware_map_t initialize_platform()
 {
-  using namespace hal::literals;
-  return hal::new_error();
+  hal::safe_throw(hal::operation_not_supported(nullptr));
+
+  return {
+    .console = nullptr,
+    .serial = nullptr,
+    .counter = nullptr,
+    .reset = +[]() {},
+  };
 }

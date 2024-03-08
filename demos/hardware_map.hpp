@@ -18,18 +18,15 @@
 #include <libhal/serial.hpp>
 #include <libhal/steady_clock.hpp>
 
-namespace hal::esp8266 {
-struct hardware_map
+struct hardware_map_t
 {
   hal::serial* console;
   hal::serial* serial;
   hal::steady_clock* counter;
   hal::callback<void()> reset;
 };
-}  // namespace hal::esp8266
 
 // Application function must be implemented by one of the compilation units
 // (.cpp) files.
-hal::status application(hal::esp8266::hardware_map& p_map);
-hal::status initialize_processor();
-hal::result<hal::esp8266::hardware_map> initialize_platform();
+void application(hardware_map_t& p_map);
+hardware_map_t initialize_platform();

@@ -16,6 +16,7 @@
 
 #include <charconv>
 #include <concepts>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -50,37 +51,48 @@ constexpr size_t ssid_max_length = 32;
  * support.
  *
  */
-template<size_t digits = 10>
-class integer_string
+template<std::unsigned_integral int_t>
+class uint_to_string
 {
 public:
-  static result<integer_string> create(std::integral auto p_integer)
+  static consteval size_t max_buffer_size_for_type() noexcept
   {
-    integer_string result;
-    auto chars_result = std::to_chars(
-      result.m_buffer.begin(), result.m_buffer.end(), p_integer, 10);
+    constexpr auto size = sizeof(int_t);
 
-    if (chars_result.ec != std::errc()) {
-      return hal::new_error(chars_result.ec);
+    switch (size) {
+      case 1:
+        return 3;
+      case 2:
+        return 12;
+      case 4:
+        return 23;
+      case 8:
+        return 45;
     }
 
-    result.m_length =
-      std::span<char>(result.m_buffer.data(), chars_result.ptr).size();
-
-    return result;
+    static_assert(size == 1 || size == 2 || size == 4 || size == 8,
+                  "The only valid integral types widths are 1 byte, 2 bytes, 4 "
+                  "bytes or 8 bytes.");
   }
 
-  std::string_view str() const
+  uint_to_string(int_t p_integer) noexcept
+  {
+    // std::errc::value_too_large is not possible m_buffer's size will always
+    // have enough bytes to hold any unsigned integral value.
+    auto result = std::to_chars(m_buffer.begin(),
+                                m_buffer.end(),
+                                /* input_value = */ p_integer,
+                                /* base = */ 10);
+    m_length = std::span<char>(m_buffer.data(), result.ptr).size();
+  }
+
+  [[nodiscard]] std::string_view str() const noexcept
   {
     return std::string_view(m_buffer.data(), m_length);
   }
 
 private:
-  integer_string()
-  {
-  }
-
-  std::array<char, digits> m_buffer{};
-  size_t m_length;
+  std::array<char, max_buffer_size_for_type()> m_buffer{};
+  size_t m_length = 0;
 };
 }  // namespace hal::esp8266

@@ -37,14 +37,24 @@ enum class connection_state
   connection_established,
 };
 
-[[nodiscard]] hal::status establish_connection(
-  hal::esp8266::at& p_esp8266,
-  hal::serial& p_console,
-  const std::string_view p_ssid,
-  const std::string_view p_password,
-  const hal::esp8266::at::socket_config& p_config,
-  const std::string_view p_ip,
-  hal::timeout auto& p_timeout)
+/**
+ * @brief Connect to WiFi and a server
+ *
+ * @param p_esp8266 - esp8266 driver
+ * @param p_console - console to log print messages to. Use an inert
+ * @param p_ssid - target WiFi AP's SSID
+ * @param p_password - target WiFi AP's password
+ * @param p_config - socket configuration
+ * @param p_ip - WiFi IP address
+ * @param p_timeout - time allowed to attempt this
+ */
+void establish_connection(hal::esp8266::at& p_esp8266,
+                          hal::serial& p_console,
+                          const std::string_view p_ssid,
+                          const std::string_view p_password,
+                          const hal::esp8266::at::socket_config& p_config,
+                          const std::string_view p_ip,
+                          hal::timeout auto& p_timeout)
 {
   connection_state state = connection_state::check_ap_connection;
 
@@ -54,7 +64,7 @@ enum class connection_state
         hal::print(p_console, "Checking if AP \"");
         hal::print(p_console, p_ssid);
         hal::print(p_console, "\" is connected... ");
-        if (HAL_CHECK(p_esp8266.is_connected_to_ap(p_timeout))) {
+        if (p_esp8266.is_connected_to_ap(p_timeout)) {
           state = connection_state::check_server_connection;
           hal::print(p_console, "Connected!\n");
         } else {
@@ -66,7 +76,7 @@ enum class connection_state
         hal::print(p_console, "Connecting to AP: \"");
         hal::print(p_console, p_ssid);
         hal::print(p_console, "\" ...\n");
-        HAL_CHECK(p_esp8266.connect_to_ap(p_ssid, p_password, p_timeout));
+        p_esp8266.connect_to_ap(p_ssid, p_password, p_timeout);
         state = connection_state::set_ip_address;
         break;
       case connection_state::set_ip_address:
@@ -74,7 +84,7 @@ enum class connection_state
           hal::print(p_console, "Setting IP Address to: ");
           hal::print(p_console, p_ip);
           hal::print(p_console, " ...\n");
-          HAL_CHECK(p_esp8266.set_ip_address(p_ip, p_timeout));
+          p_esp8266.set_ip_address(p_ip, p_timeout);
         }
         state = connection_state::check_server_connection;
         break;
@@ -82,7 +92,7 @@ enum class connection_state
         hal::print(p_console, "Checking if server \"");
         hal::print(p_console, p_config.domain);
         hal::print(p_console, "\" is connected... ");
-        if (HAL_CHECK(p_esp8266.is_connected_to_server(p_timeout))) {
+        if (p_esp8266.is_connected_to_server(p_timeout)) {
           state = connection_state::connection_established;
           hal::print(p_console, "Connected!\n");
         } else {
@@ -94,7 +104,7 @@ enum class connection_state
         hal::print(p_console, "Connecting to server: \"");
         hal::print(p_console, p_config.domain);
         hal::print(p_console, "\" ...\n");
-        HAL_CHECK(p_esp8266.connect_to_server(p_config, p_timeout));
+        p_esp8266.connect_to_server(p_config, p_timeout);
         state = connection_state::check_server_connection;
         break;
       case connection_state::connection_established:
@@ -104,8 +114,6 @@ enum class connection_state
         state = connection_state::connecting_to_ap;
     }
   }
-
-  return hal::success();
 }
 
 struct http_header_parser_t
@@ -130,7 +138,7 @@ http_header_parser_t new_http_header_parser()
 }
 }  // namespace
 
-hal::status application(hal::esp8266::hardware_map& p_map)
+void application(hardware_map_t& p_map)
 {
   using namespace std::chrono_literals;
   using namespace hal::literals;
@@ -140,8 +148,8 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   auto& serial = *p_map.serial;
   auto& console = *p_map.console;
 
-  constexpr std::string_view ssid = "ssid";
-  constexpr std::string_view password = "password";
+  constexpr std::string_view ssid = "Stellic";
+  constexpr std::string_view password = "misosoupisgreat";
   constexpr auto socket_config = hal::esp8266::at::socket_config{
     .type = hal::esp8266::at::socket_type::tcp,
     .domain = "httpstat.us",
@@ -159,18 +167,18 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   // Initialize esp8266 & create driver object
   hal::print(console, "Create & initialize esp8266...\n");
   auto timeout = hal::create_timeout(counter, 10s);
-  auto esp8266 = HAL_CHECK(hal::esp8266::at::create(serial, timeout));
+  hal::esp8266::at esp8266(serial, timeout);
   hal::print(console, "esp8266 created & initialized!! \n");
 
   // Establish connection with AP & web server
-  auto establish_result = establish_connection(
-    esp8266, console, ssid, password, socket_config, ip, timeout);
-
-  if (!establish_result) {
+  try {
+    establish_connection(
+      esp8266, console, ssid, password, socket_config, ip, timeout);
+  } catch (...) {
     hal::print(console,
                "esp8266 couldn't establish a connection to AP and/or server, "
                "restarting!! \n");
-    return hal::new_error(establish_result.error());
+    throw;
   }
 
   auto http_header_parser = new_http_header_parser();
@@ -196,20 +204,16 @@ hal::status application(hal::esp8266::hardware_map& p_map)
   }
 
   while (true) {
-    if (!bandwidth_timeout() || write_error) {
-      hal::print(console, "\n   +  |");
-      bandwidth_timeout = hal::create_timeout(counter, graph_cutoff);
-    }
-
     if (write_error) {
       hal::print(console, "Reconnecting...\n");
       // Wait 1s before attempting to reconnect
       hal::delay(counter, 1s);
 
       timeout = hal::create_timeout(counter, 20s);
-      auto result = establish_connection(
-        esp8266, console, ssid, password, socket_config, ip, timeout);
-      if (!result) {
+      try {
+        establish_connection(
+          esp8266, console, ssid, password, socket_config, ip, timeout);
+      } catch (...) {
         continue;
       }
       write_error = false;
@@ -225,9 +229,10 @@ hal::status application(hal::esp8266::hardware_map& p_map)
 
       // Send out HTTP GET request
       timeout = hal::create_timeout(counter, 500ms);
-      auto status = esp8266.server_write(hal::as_bytes(get_request), timeout);
 
-      if (!status) {
+      try {
+        esp8266.server_write(hal::as_bytes(get_request), timeout);
+      } catch (...) {
         hal::print(console, "\nFailed to write to server!\n");
         write_error = true;
         continue;
@@ -238,7 +243,7 @@ hal::status application(hal::esp8266::hardware_map& p_map)
       read_timeout = hal::create_timeout(counter, 1000ms);
     }
 
-    auto received = HAL_CHECK(esp8266.server_read(buffer)).data;
+    auto received = esp8266.server_read(buffer);
     auto remainder = received | http_header_parser.find_header_start |
                      http_header_parser.find_content_length |
                      http_header_parser.parse_content_length |
@@ -263,11 +268,19 @@ hal::status application(hal::esp8266::hardware_map& p_map)
       }
     }
 
-    if (!read_timeout()) {
-      hal::print(console, "X");
-      read_complete = true;
+    try {
+      read_timeout();
+      bandwidth_timeout();
+    } catch (const hal::timed_out& p_exception) {
+      if (&read_timeout == p_exception.instance()) {
+        hal::print(console, "X");
+        read_complete = true;
+      } else if (&bandwidth_timeout == p_exception.instance()) {
+        hal::print(console, "\n   +  |");
+        bandwidth_timeout = hal::create_timeout(counter, graph_cutoff);
+      } else {
+        throw;
+      }
     }
   }
-
-  return hal::success();
 }

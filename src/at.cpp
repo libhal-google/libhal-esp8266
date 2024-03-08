@@ -19,32 +19,33 @@
 #include <span>
 
 #include <libhal-util/serial.hpp>
+#include <libhal-util/serial_coroutines.hpp>
 #include <libhal-util/streams.hpp>
 #include <libhal-util/timeout.hpp>
+#include <libhal/error.hpp>
 
 #include "util.hpp"
 
 namespace hal::esp8266 {
+
+using namespace std::string_literals;
+
 namespace {
 [[nodiscard]] auto skip(hal::serial* p_serial, std::string_view p_string)
 {
   return hal::skip_past(*p_serial, as_bytes(p_string));
 }
 
-[[nodiscard]] hal::status wait_for_ok(hal::serial* p_serial,
-                                      timeout auto p_timeout)
+void wait_for_ok(hal::serial* p_serial, timeout auto p_timeout)
 {
   // No need to check the worker state because skip never returns `failure`
-  HAL_CHECK(try_until(skip(p_serial, ok_response), p_timeout));
-  return hal::success();
+  try_until(skip(p_serial, ok_response), p_timeout);
 }
 
-[[nodiscard]] hal::status wait_for_reset_complete(hal::serial* p_serial,
-                                                  timeout auto p_timeout)
+void wait_for_reset_complete(hal::serial* p_serial, timeout auto p_timeout)
 {
   // No need to check the worker state because skip never returns `failure`
-  HAL_CHECK(try_until(skip(p_serial, reset_complete), p_timeout));
-  return hal::success();
+  try_until(skip(p_serial, reset_complete), p_timeout);
 }
 }  // namespace
 
@@ -63,13 +64,13 @@ enum packet_manager_state : std::uint8_t
   header_complete
 };
 
-at::packet_manager::packet_manager()
+at::packet_manager::packet_manager() noexcept
   : m_state(packet_manager_state::expect_plus)
   , m_length(0)
 {
 }
 
-void at::packet_manager::find(hal::serial& p_serial)
+void at::packet_manager::find(hal::serial& p_serial) noexcept
 {
   if (is_complete_header()) {
     return;
@@ -77,7 +78,7 @@ void at::packet_manager::find(hal::serial& p_serial)
 
   std::array<hal::byte, 1> byte;
   auto result = p_serial.read(byte);
-  while (result.has_value() && result.value().data.size() != 0) {
+  while (result.data.size() != 0) {
     update_state(byte[0]);
     if (is_complete_header()) {
       return;
@@ -86,12 +87,12 @@ void at::packet_manager::find(hal::serial& p_serial)
   }
 }
 
-void at::packet_manager::set_state(std::uint8_t p_state)
+void at::packet_manager::set_state(std::uint8_t p_state) noexcept
 {
   m_state = p_state;
 }
 
-void at::packet_manager::update_state(hal::byte p_byte)
+void at::packet_manager::update_state(hal::byte p_byte) noexcept
 {
   char c = static_cast<char>(p_byte);
   switch (m_state) {
@@ -155,19 +156,19 @@ void at::packet_manager::update_state(hal::byte p_byte)
   }
 }
 
-bool at::packet_manager::is_complete_header()
+bool at::packet_manager::is_complete_header() noexcept
 {
   return m_state == packet_manager_state::header_complete;
 }
 
-std::uint16_t at::packet_manager::packet_length()
+std::uint16_t at::packet_manager::packet_length() noexcept
 {
   return is_complete_header() ? m_length : 0;
 }
 
-hal::result<std::span<hal::byte>> at::packet_manager::read_packet(
+std::span<hal::byte> at::packet_manager::read_packet(
   hal::serial& p_serial,
-  std::span<hal::byte> p_buffer)
+  std::span<hal::byte> p_buffer) noexcept
 {
   if (!is_complete_header()) {
     return p_buffer.first(0);
@@ -176,7 +177,7 @@ hal::result<std::span<hal::byte>> at::packet_manager::read_packet(
   auto buffer_size = static_cast<std::uint16_t>(p_buffer.size());
   auto bytes_capable_of_reading = std::min(m_length, buffer_size);
   auto subspan = p_buffer.first(bytes_capable_of_reading);
-  auto bytes_read_array = HAL_CHECK(p_serial.read(subspan)).data;
+  auto bytes_read_array = p_serial.read(subspan).data;
 
   m_length = m_length - bytes_read_array.size();
 
@@ -187,96 +188,81 @@ hal::result<std::span<hal::byte>> at::packet_manager::read_packet(
   return bytes_read_array;
 }
 
-void at::packet_manager::reset()
+void at::packet_manager::reset() noexcept
 {
   m_state = packet_manager_state::expect_plus;
   m_length = 0;
 }
 
 // constructor
-at::at(hal::serial& p_serial)
+at::at(hal::serial& p_serial, deadline p_timeout)
   : m_serial(&p_serial)
   , m_packet_manager{}
 {
+  reset(p_timeout);
 }
 
-result<at> at::create(hal::serial& p_serial, deadline p_timeout)
-{
-  at new_at(p_serial);
-
-  HAL_CHECK(new_at.reset(p_timeout));
-
-  return new_at;
-}
-
-hal::status at::reset(deadline p_timeout)
+void at::reset(deadline p_timeout)
 {
   // Reset the device
-  HAL_CHECK(write(*m_serial, "AT+RST\r\n"));
-  HAL_CHECK(wait_for_reset_complete(m_serial, p_timeout));
+  write(*m_serial, "AT+RST\r\n", p_timeout);
+  wait_for_reset_complete(m_serial, p_timeout);
 
   // Turn off echo
-  HAL_CHECK(write(*m_serial, "ATE0\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
-
-  return hal::success();
+  write(*m_serial, "ATE0\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 }
 
 // NOLINTNEXTLINE
-hal::status at::connect_to_ap(std::string_view p_ssid,
-                              std::string_view p_password,
-                              deadline p_timeout)
+void at::connect_to_ap(std::string_view p_ssid,
+                       std::string_view p_password,
+                       deadline p_timeout)
 {
   // Configure as WiFi Station (client) mode
-  HAL_CHECK(write(*m_serial, "AT+CWMODE=1\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
+  write(*m_serial, "AT+CWMODE=1\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 
   // Connect to wifi access point
-  HAL_CHECK(write(*m_serial, "AT+CWJAP=\""));
-  HAL_CHECK(write(*m_serial, p_ssid));
-  HAL_CHECK(write(*m_serial, "\",\""));
-  HAL_CHECK(write(*m_serial, p_password));
-  HAL_CHECK(write(*m_serial, "\"\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
-
-  return hal::success();
+  write(*m_serial, "AT+CWJAP=\"", p_timeout);
+  write(*m_serial, p_ssid, p_timeout);
+  write(*m_serial, "\",\"", p_timeout);
+  write(*m_serial, p_password, p_timeout);
+  write(*m_serial, "\"\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 }
 
-[[nodiscard]] hal::status at::set_ip_address(std::string_view p_ip,
-                                             deadline p_timeout)
+void at::set_ip_address(std::string_view p_ip, deadline p_timeout)
 {
-  HAL_CHECK(write(*m_serial, "AT+CIPSTA=\""));
-  HAL_CHECK(write(*m_serial, p_ip));
-  HAL_CHECK(write(*m_serial, "\"\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
-
-  return hal::success();
+  write(*m_serial, "AT+CIPSTA=\"", p_timeout);
+  write(*m_serial, p_ip, p_timeout);
+  write(*m_serial, "\"\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 }
 
-hal::result<bool> at::is_connected_to_ap(deadline p_timeout)
+bool at::is_connected_to_ap(deadline p_timeout)
 {
   // Query the device to determine if it is still connected
-  HAL_CHECK(write(*m_serial, "AT+CWJAP?\r\n"));
+  write(*m_serial, "AT+CWJAP?\r\n", p_timeout);
 
   auto find_confirm = hal::stream_find(hal::as_bytes(ap_connected));
   auto find_ok = hal::stream_find(hal::as_bytes(ok_response));
 
   while (hal::in_progress(find_confirm) && hal::in_progress(find_ok)) {
     std::array<hal::byte, 1> buffer;
-    auto read_result = HAL_CHECK(m_serial->read(buffer));
+    auto read_result = m_serial->read(buffer);
 
     // Pipe data into both streams
     read_result.data | find_confirm;
     read_result.data | find_ok;
 
     // Check if we've timed out
-    HAL_CHECK(p_timeout());
+    p_timeout();
   }
 
   // We should fine the confirmation before we find the "OK" response
   if (hal::finished(find_confirm) && hal::in_progress(find_ok)) {
     // Read the last of the stream and find the OK to be sure
-    HAL_CHECK(wait_for_ok(m_serial, p_timeout));
+    wait_for_ok(m_serial, p_timeout);
     return true;
   }
 
@@ -285,18 +271,16 @@ hal::result<bool> at::is_connected_to_ap(deadline p_timeout)
     return false;
   }
 
-  return hal::new_error(std::errc::io_error);
+  hal::safe_throw(hal::io_error(this));
 }
 
-hal::status at::disconnect_from_ap(deadline p_timeout)
+void at::disconnect_from_ap(deadline p_timeout)
 {
-  HAL_CHECK(write(*m_serial, "AT+CWQAP\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
-
-  return hal::success();
+  write(*m_serial, "AT+CWQAP\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 }
 
-hal::status at::connect_to_server(socket_config p_config, deadline p_timeout)
+void at::connect_to_server(socket_config p_config, deadline p_timeout)
 {
   const auto expected_response = hal::as_bytes(ok_response);
 
@@ -311,50 +295,44 @@ hal::status at::connect_to_server(socket_config p_config, deadline p_timeout)
       break;
   }
 
-  auto port_str = HAL_CHECK(integer_string<6>::create(p_config.port));
-
   // Connect to web server
-  HAL_CHECK(hal::write(*m_serial, "AT+CIPSTART=\""));
-  HAL_CHECK(hal::write(*m_serial, socket_type_str));
-  HAL_CHECK(hal::write(*m_serial, "\",\""));
-  HAL_CHECK(hal::write(*m_serial, p_config.domain));
-  HAL_CHECK(hal::write(*m_serial, "\","));
-  HAL_CHECK(hal::write(*m_serial, port_str.str()));
-  HAL_CHECK(hal::write(*m_serial, "\r\n"));
-  HAL_CHECK(hal::try_until(skip_past(*m_serial, expected_response), p_timeout));
-
-  return hal::success();
+  hal::write(*m_serial, "AT+CIPSTART=\"", p_timeout);
+  hal::write(*m_serial, socket_type_str, p_timeout);
+  hal::write(*m_serial, "\",\"", p_timeout);
+  hal::write(*m_serial, p_config.domain, p_timeout);
+  hal::write(*m_serial, "\",", p_timeout);
+  hal::write(*m_serial, uint_to_string(p_config.port).str(), p_timeout);
+  hal::write(*m_serial, "\r\n", p_timeout);
+  hal::try_until(skip_past(*m_serial, expected_response), p_timeout);
 }
 
-hal::result<at::write_t> at::server_write(std::span<const hal::byte> p_data,
-                                          deadline p_timeout)
+std::span<const hal::byte> at::server_write(std::span<const hal::byte> p_data,
+                                            deadline p_timeout)
 {
   using namespace std::literals;
 
-  if (p_data.size() > maximum_transmit_packet_size) {
-    return new_error(std::errc::file_too_large);
-  }
+  // Trim data to the maximum packet length.
+  p_data = p_data.subspan(0, maximum_transmit_packet_size);
 
-  auto write_length = HAL_CHECK(integer_string<10>::create(p_data.size()));
-  HAL_CHECK(hal::write(*m_serial, "AT+CIPSEND="));
-  HAL_CHECK(hal::write(*m_serial, write_length.str()));
-  HAL_CHECK(hal::write(*m_serial, "\r\n"));
-  HAL_CHECK(try_until(skip_past(*m_serial, hal::as_bytes(">"sv)), p_timeout));
-  HAL_CHECK(hal::write(*m_serial, p_data));
+  hal::write(*m_serial, "AT+CIPSEND=", p_timeout);
+  hal::write(*m_serial, uint_to_string(p_data.size()).str(), p_timeout);
+  hal::write(*m_serial, "\r\n", p_timeout);
+  try_until(skip_past(*m_serial, hal::as_bytes(">"sv)), p_timeout);
+  hal::write(*m_serial, p_data, p_timeout);
 
   auto find_packet = hal::stream_find(hal::as_bytes(start_of_packet));
   auto find_send_finish = hal::stream_find(hal::as_bytes(send_finished));
 
   while (hal::in_progress(find_packet) && hal::in_progress(find_send_finish)) {
     std::array<hal::byte, 1> buffer;
-    auto read_result = HAL_CHECK(m_serial->read(buffer));
+    auto read_result = m_serial->read(buffer);
 
     // Pipe data into both streams
     read_result.data | find_packet;
     read_result.data | find_send_finish;
 
     // Check if we've timed out
-    HAL_CHECK(p_timeout());
+    p_timeout();
   }
 
   // If we found the start of a packet, we need to set the state of the packet
@@ -363,16 +341,16 @@ hal::result<at::write_t> at::server_write(std::span<const hal::byte> p_data,
     m_packet_manager.set_state(packet_manager_state::expect_digit1);
   }
 
-  return write_t{ .data = p_data };
+  return p_data;
 }
 
-hal::result<bool> at::is_connected_to_server(deadline p_timeout)
+bool at::is_connected_to_server(deadline p_timeout)
 {
   constexpr std::string_view response_status = "STATUS";
   constexpr std::string_view response_start = "+CIPSTATUS:";
 
   // Query the device to determine if it is still connected
-  HAL_CHECK(write(*m_serial, "AT+CIPSTATUS\r\n"));
+  write(*m_serial, "AT+CIPSTATUS\r\n", p_timeout);
 
   auto find_status = hal::stream_find(hal::as_bytes(response_status));
   auto find_start = hal::stream_find(hal::as_bytes(response_start));
@@ -380,20 +358,20 @@ hal::result<bool> at::is_connected_to_server(deadline p_timeout)
 
   while (hal::in_progress(find_start) && hal::in_progress(find_ok)) {
     std::array<hal::byte, 1> buffer;
-    auto read_result = HAL_CHECK(m_serial->read(buffer));
+    auto read_result = m_serial->read(buffer);
 
     // Pipe data into both streams
     read_result.data | find_status | find_start;
     read_result.data | find_ok;
 
     // Check if we've timed out
-    HAL_CHECK(p_timeout());
+    p_timeout();
   }
 
   // We should fine the confirmation before we find the "OK" response
   if (hal::finished(find_start) && hal::in_progress(find_ok)) {
     // Read the last of the stream and find the OK to be sure
-    HAL_CHECK(wait_for_ok(m_serial, p_timeout));
+    wait_for_ok(m_serial, p_timeout);
     return true;
   }
 
@@ -402,10 +380,10 @@ hal::result<bool> at::is_connected_to_server(deadline p_timeout)
     return false;
   }
 
-  return hal::new_error(std::errc::io_error);
+  hal::safe_throw(hal::io_error(this));
 }
 
-hal::result<at::read_t> at::server_read(std::span<hal::byte> p_buffer)
+std::span<hal::byte> at::server_read(std::span<hal::byte> p_buffer)
 {
   // Format of a TCP packet for the ESP8266 AT commands:
   //
@@ -424,19 +402,17 @@ hal::result<at::read_t> at::server_read(std::span<hal::byte> p_buffer)
 
   do {
     m_packet_manager.find(*m_serial);
-    read = HAL_CHECK(m_packet_manager.read_packet(*m_serial, buffer));
+    read = m_packet_manager.read_packet(*m_serial, buffer);
     bytes_read += read.size();
     buffer = buffer.subspan(read.size());
   } while (read.size() != 0 && buffer.size() != 0);
 
-  return read_t{ .data = p_buffer.first(bytes_read) };
+  return p_buffer.first(bytes_read);
 }
 
-hal::status at::disconnect_from_server(deadline p_timeout)
+void at::disconnect_from_server(deadline p_timeout)
 {
-  HAL_CHECK(write(*m_serial, "AT+CIPCLOSE=0\r\n"));
-  HAL_CHECK(wait_for_ok(m_serial, p_timeout));
-
-  return hal::success();
+  write(*m_serial, "AT+CIPCLOSE=0\r\n", p_timeout);
+  wait_for_ok(m_serial, p_timeout);
 }
 }  // namespace hal::esp8266
